@@ -128,12 +128,27 @@ Upload a PNG/JPEG image in the "Try the Model" area. The app resizes the image t
 
 Recommended deployment: **Streamlit Community Cloud**.
 
-1. Push this repository to GitHub.
-2. Open Streamlit Community Cloud and create a new app.
-3. Select `AalimBaba/Land-Usage-Monitoring-Tool`.
+Use these exact settings:
+
+| Setting | Value |
+| --- | --- |
+| Repository | `AalimBaba/Land-Usage-Monitoring-Tool` |
+| Branch | `main` |
+| Main file path | `app.py` |
+| Python version | `3.11` |
+| Platform | Streamlit Community Cloud |
+
+Deployment steps:
+
+1. Open Streamlit Community Cloud and create a new app.
+2. Select `AalimBaba/Land-Usage-Monitoring-Tool`.
+3. Select branch `main`.
 4. Set the main file path to `app.py`.
-5. Deploy.
-6. Replace the live demo placeholder in this README and `CV_SUMMARY.md` with the deployed URL.
+5. Open **Advanced settings** and choose Python `3.11`.
+6. Deploy.
+7. Replace the live demo placeholder in this README and `CV_SUMMARY.md` only after the deployed app is verified.
+
+Important: Streamlit Community Cloud selects Python version in the app's Advanced settings. If an existing app was created with the wrong Python version, delete and redeploy it with Python `3.11`; rebooting alone may keep the old Python runtime.
 
 Alternative Docker deployment:
 
@@ -146,7 +161,7 @@ The app does not require API keys or environment variables for local inference. 
 
 ## Tech Stack
 
-Python, Streamlit, TensorFlow/Keras, NumPy, Pillow, Matplotlib, scikit-learn, Rasterio, Docker.
+Python, Streamlit, TensorFlow/Keras CPU runtime, NumPy, Pillow, Matplotlib, scikit-learn, Rasterio, Docker.
 
 ## Limitations and Ethical Note
 

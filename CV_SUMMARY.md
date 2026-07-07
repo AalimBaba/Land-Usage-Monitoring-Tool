@@ -11,7 +11,7 @@ Land Usage Monitoring Tool is a web-based semantic segmentation project for esti
 
 ## Tech Stack
 
-Python, Streamlit, TensorFlow/Keras, NumPy, Pillow, Matplotlib, scikit-learn, Rasterio, Docker.
+Python, Streamlit, TensorFlow/Keras CPU runtime, NumPy, Pillow, Matplotlib, scikit-learn, Rasterio, Docker.
 
 ## Metrics
 
