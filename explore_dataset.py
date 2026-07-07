@@ -1,66 +1,52 @@
-import os
-import numpy as np
-from skimage.io import imread
-import rasterio
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
 import matplotlib.pyplot as plt
+import numpy as np
 
-# Define dataset paths
-base_path = r"C:\Users\LENOVO\Desktop\Land Usage AI\SEN-2 LULC"
-folders = [
-    ("train_images", ".png"),
-    ("train_masks", ".tif"),
-    ("val_images", ".png"),
-    ("val_masks", ".tif"),
-    ("test_images", ".png"),
-    ("test_masks", ".tif")
-]
+from land_usage.data import discover_dataset, load_image, load_mask
+from land_usage.inference import colorize_mask
 
-# Count files and list samples
-print("Number of files in each folder:")
-for folder, ext in folders:
-    folder_path = os.path.join(base_path, folder)
-    files = [f for f in os.listdir(folder_path) if f.lower().endswith(ext)]
-    print(f"{folder}: {len(files)} files: {files[:5]}")
 
-# Load a sample image and mask
-train_image_path = os.path.join(base_path, "train_images")
-train_mask_path = os.path.join(base_path, "train_masks")
-image_files = [f for f in os.listdir(train_image_path) if f.lower().endswith(".png")]
-mask_files = [f for f in os.listdir(train_mask_path) if f.lower().endswith(".tif")]
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Inspect dataset layout and one aligned image/mask pair.")
+    parser.add_argument("--data-dir", required=True, type=Path)
+    parser.add_argument("--seed", default=42, type=int)
+    parser.add_argument("--output", default=Path("sample_image_mask.png"), type=Path)
+    return parser.parse_args()
 
-if not image_files or not mask_files:
-    print("Error: No image or mask files found!")
-    exit()
 
-# Find a matching pair
-for img_file in image_files:
-    base_name = os.path.splitext(img_file)[0]
-    mask_file = f"{base_name}.tif"
-    if mask_file in mask_files:
-        sample_image_path = os.path.join(train_image_path, img_file)
-        sample_mask_path = os.path.join(train_mask_path, mask_file)
-        break
-else:
-    print("Error: No matching image/mask pair found!")
-    exit()
+def main() -> None:
+    args = parse_args()
+    train, val, test = discover_dataset(args.data_dir, seed=args.seed)
+    print(f"train pairs: {len(train)}")
+    print(f"validation pairs: {len(val)}")
+    print(f"test pairs: {len(test)}")
 
-# Read image and mask
-image = imread(sample_image_path)  # Shape: (height, width, channels)
-with rasterio.open(sample_mask_path) as src:
-    mask = src.read(1)  # Shape: (height, width)
+    sample = train[0]
+    image = load_image(sample.image_path)
+    mask = load_mask(sample.mask_path)
+    print("sample image:", sample.image_path)
+    print("sample mask:", sample.mask_path)
+    print("image shape:", image.shape)
+    print("mask shape:", mask.shape)
+    print("mask classes:", np.unique(mask).tolist())
 
-# Print details
-print("\nSample image shape:", image.shape)
-print("Sample mask shape:", mask.shape)
-print("Unique values in mask (land use classes):", np.unique(mask))
+    plt.figure(figsize=(9, 4))
+    plt.subplot(1, 2, 1)
+    plt.title("Image")
+    plt.imshow(image)
+    plt.axis("off")
+    plt.subplot(1, 2, 2)
+    plt.title("Mask")
+    plt.imshow(colorize_mask(mask))
+    plt.axis("off")
+    plt.tight_layout()
+    plt.savefig(args.output, dpi=160)
+    print(f"Wrote {args.output}")
 
-# Visualize
-plt.figure(figsize=(12, 4))
-plt.subplot(1, 2, 1)
-plt.title("Sample Image")
-plt.imshow(image)
-plt.subplot(1, 2, 2)
-plt.title("Sample Mask")
-plt.imshow(mask, cmap="tab10")
-plt.savefig("sample_image_mask.png")
-plt.show()
+
+if __name__ == "__main__":
+    main()

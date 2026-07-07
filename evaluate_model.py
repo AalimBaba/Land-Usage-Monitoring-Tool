@@ -1,151 +1,72 @@
-import os
-import numpy as np
-from skimage.io import imread
-import rasterio
-import tensorflow as tf
-from tensorflow.keras import layers, models
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
 import matplotlib.pyplot as plt
+import numpy as np
+import tensorflow as tf
 
-# Define paths
-base_path = r"C:\Users\LENOVO\Desktop\Land Usage AI\SEN-2 LULC"
-test_image_dir = os.path.join(base_path, "test_images")
-test_mask_dir = os.path.join(base_path, "test_masks")
-model_path = r"C:\Users\LENOVO\Desktop\Land Usage AI\unet_model.h5"
+from land_usage.config import CLASS_NAMES, MODEL_INPUT_SIZE, NUM_CLASSES
+from land_usage.data import discover_dataset, load_pairs
+from land_usage.inference import colorize_mask
+from land_usage.metrics import segmentation_metrics
 
-# Parameters
-IMG_HEIGHT, IMG_WIDTH, IMG_CHANNELS = 64, 64, 3
-NUM_CLASSES = 7
-BATCH_SIZE = 4
 
-# Data loading function
-def load_data(image_dir, mask_dir, img_size=(IMG_HEIGHT, IMG_WIDTH)):
-    images, masks = [], []
-    image_files = sorted([f for f in os.listdir(image_dir) if f.lower().endswith('.png')])
-    mask_files = sorted([f for f in os.listdir(mask_dir) if f.lower().endswith(('.tif', '.tiff'))])
-    
-    print(f"Found {len(image_files)} image files: {image_files[:5]}")
-    print(f"Found {len(mask_files)} mask files: {mask_files[:5]}")
-    
-    pairs = []
-    for img_file in image_files:
-        base_name = os.path.splitext(img_file)[0]
-        mask_file = f"{base_name}.tif"
-        if mask_file in mask_files:
-            pairs.append((img_file, mask_file))
-    
-    print(f"Found {len(pairs)} paired files: {pairs[:5]}")
-    
-    for img_file, mask_file in pairs[:20]:  # Limit to 20 for evaluation
-        img_path = os.path.join(image_dir, img_file)
-        mask_path = os.path.join(mask_dir, mask_file)
-        print(f"Loading {img_file} and {mask_file}")
-        
-        try:
-            img = imread(img_path)  # Shape: (height, width, channels)
-            img = img / 255.0
-        except Exception as e:
-            print(f"Error loading image {img_file}: {e}")
-            continue
-        try:
-            with rasterio.open(mask_path) as src:
-                mask = src.read(1)  # Shape: (height, width)
-                mask = mask - 1  # Shift [1, 2, ..., 7] to [0, 1, ..., 6]
-        except Exception as e:
-            print(f"Error loading mask {mask_file}: {e}")
-            continue
-        
-        images.append(img)
-        masks.append(mask)
-    
-    if not images:
-        raise ValueError("No valid image/mask pairs loaded!")
-    
-    images = np.array(images)
-    masks = np.array(masks)
-    print("Unique mask values:", np.unique(masks))
-    masks = tf.keras.utils.to_categorical(masks, num_classes=NUM_CLASSES)
-    return images, masks
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Evaluate a land-use segmentation model on the test split.")
+    parser.add_argument("--data-dir", required=True, type=Path)
+    parser.add_argument("--model", default=Path("unet_model.h5"), type=Path)
+    parser.add_argument("--output", default=Path("metrics.json"), type=Path)
+    parser.add_argument("--plot-output", default=Path("test_predictions.png"), type=Path)
+    parser.add_argument("--batch-size", default=8, type=int)
+    parser.add_argument("--seed", default=42, type=int)
+    return parser.parse_args()
 
-# Build U-Net model (same as train_model.py)
-def build_unet(input_shape=(IMG_HEIGHT, IMG_WIDTH, IMG_CHANNELS), num_classes=NUM_CLASSES):
-    inputs = layers.Input(input_shape)
-    c1 = layers.Conv2D(16, 3, activation='relu', padding='same')(inputs)
-    c1 = layers.Conv2D(16, 3, activation='relu', padding='same')(c1)
-    p1 = layers.MaxPooling2D(2)(c1)
-    c2 = layers.Conv2D(32, 3, activation='relu', padding='same')(p1)
-    c2 = layers.Conv2D(32, 3, activation='relu', padding='same')(c2)
-    p2 = layers.MaxPooling2D(2)(c2)
-    c3 = layers.Conv2D(64, 3, activation='relu', padding='same')(p2)
-    c3 = layers.Conv2D(64, 3, activation='relu', padding='same')(c3)
-    u4 = layers.UpSampling2D(2)(c3)
-    u4 = layers.Concatenate()([u4, c2])
-    c4 = layers.Conv2D(32, 3, activation='relu', padding='same')(u4)
-    c4 = layers.Conv2D(32, 3, activation='relu', padding='same')(c4)
-    u5 = layers.UpSampling2D(2)(c4)
-    u5 = layers.Concatenate()([u5, c1])
-    c5 = layers.Conv2D(16, 3, activation='relu', padding='same')(u5)
-    c5 = layers.Conv2D(16, 3, activation='relu', padding='same')(c5)
-    outputs = layers.Conv2D(num_classes, 1, activation='softmax')(c5)
-    
-    model = models.Model(inputs, outputs)
-    return model
 
-# Save the trained model (modify train_model.py to save)
-print("Modifying train_model.py to save the model...")
-with open(r"C:\Users\LENOVO\Desktop\Land Usage AI\train_model.py", 'r') as file:
-    lines = file.readlines()
-with open(r"C:\Users\LENOVO\Desktop\Land Usage AI\train_model.py", 'w') as file:
-    for line in lines:
-        file.write(line)
-        if "model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])" in line:
-            file.write("    model.save('unet_model.h5')\n")
+def save_prediction_plot(images: np.ndarray, masks: np.ndarray, preds: np.ndarray, output: Path) -> None:
+    count = min(5, len(images))
+    if count == 0:
+        return
+    plt.figure(figsize=(12, 4 * count))
+    for idx in range(count):
+        plt.subplot(count, 3, idx * 3 + 1)
+        plt.title("Image")
+        plt.imshow(images[idx])
+        plt.axis("off")
+        plt.subplot(count, 3, idx * 3 + 2)
+        plt.title("True mask")
+        plt.imshow(colorize_mask(masks[idx]))
+        plt.axis("off")
+        plt.subplot(count, 3, idx * 3 + 3)
+        plt.title("Predicted mask")
+        plt.imshow(colorize_mask(preds[idx]))
+        plt.axis("off")
+    plt.tight_layout()
+    plt.savefig(output, dpi=160)
 
-# Load data
-print("Loading test data...")
-try:
-    test_images, test_masks = load_data(test_image_dir, test_mask_dir)
-    print("Test images shape:", test_images.shape)
-    print("Test masks shape:", test_masks.shape)
-except Exception as e:
-    print(f"Data loading failed: {e}")
-    exit()
 
-# Load model
-print("Loading model...")
-try:
-    model = tf.keras.models.load_model(model_path)
-except Exception as e:
-    print(f"Model loading failed: {e}. Rebuilding and using untrained model.")
-    model = build_unet()
-    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+def main() -> None:
+    args = parse_args()
+    _, _, test_pairs = discover_dataset(args.data_dir, seed=args.seed)
+    test_images, test_masks = load_pairs(test_pairs, MODEL_INPUT_SIZE)
 
-# Evaluate model
-print("Evaluating model...")
-test_loss, test_accuracy = model.evaluate(test_images, test_masks, batch_size=BATCH_SIZE, verbose=1)
-print(f"Test Loss: {test_loss:.4f}")
-print(f"Test Accuracy: {test_accuracy:.4f}")
+    model = tf.keras.models.load_model(args.model, compile=False)
+    probabilities = model.predict(test_images, batch_size=args.batch_size, verbose=1)
+    predictions = np.argmax(probabilities, axis=-1)
+    metrics = segmentation_metrics(test_masks, predictions, NUM_CLASSES)
+    metrics["dataset"] = {"test_pairs": len(test_pairs)}
+    metrics["class_names"] = CLASS_NAMES
 
-# Predict on samples
-print("Generating predictions...")
-pred_masks = model.predict(test_images[:5])  # Predict on 5 samples
-pred_masks = np.argmax(pred_masks, axis=-1)
-true_masks = np.argmax(test_masks[:5], axis=-1)
+    args.output.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
+    save_prediction_plot(test_images, test_masks, predictions, args.plot_output)
 
-# Save prediction plots
-plt.figure(figsize=(15, 10))
-for i in range(5):
-    plt.subplot(5, 3, i*3 + 1)
-    plt.title("Test Image")
-    plt.imshow(test_images[i])
-    plt.axis('off')
-    plt.subplot(5, 3, i*3 + 2)
-    plt.title("True Mask")
-    plt.imshow(true_masks[i], cmap="tab10")
-    plt.axis('off')
-    plt.subplot(5, 3, i*3 + 3)
-    plt.title("Predicted Mask")
-    plt.imshow(pred_masks[i], cmap="tab10")
-    plt.axis('off')
-plt.tight_layout()
-plt.savefig("test_predictions.png")
-plt.show()
+    print("Evaluation complete")
+    for key in ("pixel_accuracy", "mean_iou", "mean_dice", "macro_precision", "macro_recall", "macro_f1"):
+        print(f"{key}: {metrics[key]:.4f}")
+    print(f"Wrote {args.output}")
+
+
+if __name__ == "__main__":
+    main()
