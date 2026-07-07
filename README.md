@@ -71,7 +71,7 @@ The original code used Windows-only absolute paths, trained on only the first 50
 Create an environment and install dependencies:
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 ```
 
 Train the model:
@@ -118,6 +118,7 @@ Current metrics: **not included in this repository because the dataset is not co
 Run the web app locally:
 
 ```bash
+pip install -r requirements.txt
 streamlit run app.py
 ```
 
