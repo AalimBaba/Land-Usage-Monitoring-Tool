@@ -44,6 +44,25 @@ def id_card_image() -> Image.Image:
     return img
 
 
+def photographed_id_card_image(seed: int = 51) -> Image.Image:
+    rng = np.random.default_rng(seed)
+    arr = np.full((260, 520, 3), (214, 218, 210), dtype=np.uint8)
+    img = Image.fromarray(arr)
+    draw = ImageDraw.Draw(img)
+    draw.rounded_rectangle((8, 8, 512, 252), radius=12, fill=(218, 222, 216), outline=(116, 124, 116), width=3)
+    draw.rectangle((28, 58, 150, 185), fill=(150, 156, 154), outline=(95, 95, 95), width=2)
+    draw.ellipse((62, 76, 116, 134), fill=(126, 128, 126))
+    draw.rectangle((52, 135, 126, 184), fill=(70, 82, 92))
+    for idx, width in enumerate([255, 215, 300, 285, 190, 245, 225]):
+        y = 42 + idx * 24
+        draw.rectangle((178, y, 178 + width, y + 7), fill=(45, 48, 46))
+    for x in range(420, 500, 7):
+        shade = 30 if (x // 7) % 2 else 210
+        draw.rectangle((x, 88, x + 3, 218), fill=(shade, shade, shade))
+    noise = rng.normal(0, 9, (260, 520, 3))
+    return Image.fromarray(np.clip(np.asarray(img).astype(np.int16) + noise, 0, 255).astype(np.uint8))
+
+
 def portrait_image() -> Image.Image:
     img = Image.new("RGB", (360, 360), (80, 105, 130))
     draw = ImageDraw.Draw(img)
@@ -207,6 +226,13 @@ def test_text_heavy_screenshot_is_rejected():
 
 def test_id_card_document_is_rejected():
     result = validate_land_image(id_card_image())
+
+    assert result.image_relevance == "Rejected"
+    assert result.segmentation == "Not run"
+
+
+def test_photographed_id_card_is_rejected():
+    result = validate_land_image(photographed_id_card_image())
 
     assert result.image_relevance == "Rejected"
     assert result.segmentation == "Not run"

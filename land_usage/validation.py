@@ -69,7 +69,7 @@ def _extract_features(image: Image.Image) -> dict[str, float | int]:
     maxc = arr.max(axis=2)
     minc = arr.min(axis=2)
     delta = maxc - minc
-    saturation = np.where(maxc > 0, delta / maxc, 0.0)
+    saturation = np.divide(delta, maxc, out=np.zeros_like(delta), where=maxc > 0)
 
     gray = (0.299 * r + 0.587 * g + 0.114 * b).astype(np.uint8)
     top_band = slice(0, 38)
@@ -214,6 +214,16 @@ def _score_document(features: dict[str, float | int]) -> tuple[int, list[str]]:
         score += 1
         fired.append("flat low-saturation document/card appearance")
 
+    dense_id_card_signature = (
+        features["text_density_estimate"] > 0.50
+        and features["low_saturation_ratio"] > 0.60
+        and features["rectangular_boundary_score"] > 1.15
+        and features["colour_diversity"] < 115
+    )
+    if dense_id_card_signature:
+        score += 4
+        fired.append("dense low-saturation ID/card text layout")
+
     return score, fired
 
 
@@ -297,6 +307,15 @@ def validate_land_image(image: Image.Image) -> InputValidationResult:
         return _result("Rejected", "Strong document-like layout detected.", features, doc_score, aerial_score, indoor_score, fired)
 
     if doc_score >= 6 and aerial_score <= 4:
+        return _result("Rejected", "Strong document-like layout detected.", features, doc_score, aerial_score, indoor_score, fired)
+
+    strong_id_card_signature = (
+        doc_score >= 8
+        and features["text_density_estimate"] > 0.50
+        and features["low_saturation_ratio"] > 0.60
+        and features["colour_diversity"] < 115
+    )
+    if strong_id_card_signature:
         return _result("Rejected", "Strong document-like layout detected.", features, doc_score, aerial_score, indoor_score, fired)
 
     screenshot_ui_with_land = features["top_dark_ratio"] > 0.35 and features["light_ratio"] > 0.12 and aerial_score >= 4
