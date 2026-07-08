@@ -8,6 +8,7 @@ from PIL import Image, UnidentifiedImageError
 
 from land_usage.config import CLASS_NAMES, PALETTE, REPO_URL
 from land_usage.inference import ModelUnavailableError, load_model, predict_image
+from land_usage.validation import InputValidationResult, validate_land_image
 
 
 ROOT = Path(__file__).resolve().parent
@@ -144,10 +145,24 @@ def metric_value(metrics: dict, key: str) -> str:
 
 
 def render_distribution(distribution: dict[str, float], confidence: float) -> None:
-    st.subheader("Predicted Class Distribution")
+    st.subheader("Predicted Pixel Distribution")
+    st.write(
+        "These percentages represent the share of image pixels assigned to each predicted land class. "
+        "They are not model accuracy or confidence scores."
+    )
     for name, pct in distribution.items():
         st.progress(min(max(pct / 100, 0), 1), text=f"{name}: {pct:.1f}%")
     st.caption(f"Mean pixel confidence: {confidence:.1f}%. Confidence is model softmax confidence, not real-world accuracy.")
+
+
+def render_validation_status(validation: InputValidationResult, segmentation: str | None = None) -> None:
+    st.markdown("**INPUT VALIDATION**")
+    cols = st.columns(3)
+    cols[0].metric("File integrity", validation.file_integrity)
+    cols[1].metric("Image relevance", validation.image_relevance)
+    cols[2].metric("Segmentation", segmentation or validation.segmentation)
+    if validation.reasons:
+        st.caption(" ".join(validation.reasons))
 
 
 def dominant_class(distribution: dict[str, float]) -> tuple[str, float]:
@@ -197,7 +212,8 @@ with st.container(border=True):
     )
     st.caption(
         "This is a compact demo model, not a survey-grade system. Results are best interpreted as a portfolio "
-        "example of an end-to-end segmentation workflow."
+        "example of an end-to-end segmentation workflow. Documents, certificates, portraits, screenshots, blank images, "
+        "and simple graphics are rejected before U-Net inference."
     )
     upload = st.file_uploader("Upload image", type=["png", "jpg", "jpeg"], accept_multiple_files=False)
 
@@ -206,9 +222,30 @@ with st.container(border=True):
     else:
         try:
             image = Image.open(upload).convert("RGB")
+            validation = validate_land_image(image)
+
+            should_run_segmentation = validation.is_suitable
+            if validation.is_rejected:
+                render_validation_status(validation)
+                st.error(
+                    "This image does not appear to be satellite or aerial land imagery. "
+                    "Please upload a suitable land or satellite image."
+                )
+                should_run_segmentation = False
+            elif validation.is_uncertain:
+                render_validation_status(validation)
+                st.warning(
+                    "This image may not be satellite or aerial land imagery. Run segmentation only if the upload is actually a land, aerial, or remote-sensing image."
+                )
+                should_run_segmentation = st.checkbox("Run segmentation anyway for this uncertain image")
+
+            if not should_run_segmentation:
+                st.stop()
+
             model = load_model(MODEL_PATH)
             with st.spinner("Running segmentation model..."):
                 result = predict_image(model, image)
+            render_validation_status(validation, segmentation="Run")
 
             left, mid, right = st.columns(3)
             left.image(image, caption="Uploaded Image", use_column_width=True)

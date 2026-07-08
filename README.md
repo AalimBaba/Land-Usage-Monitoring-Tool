@@ -9,6 +9,7 @@ GitHub: https://github.com/AalimBaba/Land-Usage-Monitoring-Tool
 ## Features
 
 - Upload PNG/JPEG satellite or land images.
+- Reject obvious out-of-distribution uploads such as documents, certificates, screenshots, portraits, blank images, and simple graphics before segmentation.
 - Run real TensorFlow/Keras U-Net inference from `unet_model.h5`.
 - Display predicted segmentation mask, overlay, class distribution, and mean softmax confidence.
 - Gracefully handle invalid images and missing model files.
@@ -61,6 +62,8 @@ dataset/
 For unsplit datasets, the scripts create reproducible train/validation/test splits with a fixed seed.
 
 The bundled model is a compact U-Net with input shape `64 x 64 x 3` and seven output classes. It is suitable for demonstration and experimentation, not production-grade monitoring.
+
+The deployed app includes a lightweight pre-inference validation layer. This gate checks file integrity and uses image statistics, document/text-density cues, skin-tone layout, blank-image detection, texture, and land-colour patterns to reject obviously irrelevant inputs before U-Net inference. It is intentionally lightweight for Streamlit Cloud and should be treated as a practical heuristic, not a calibrated semantic classifier.
 
 ## Why the Original Accuracy Was Limited
 
@@ -165,7 +168,7 @@ Python, Streamlit, TensorFlow/Keras, U-Net, NumPy, Pillow, Scikit-learn, Matplot
 
 ## Limitations and Ethical Note
 
-The bundled demo model is small and operates at low `64 x 64` resolution. Predictions depend on dataset quality and may confuse similar land classes, miss small structures, or produce coarse boundaries. The app is not suitable for official land surveys, legal decisions, environmental policy, agricultural planning, or safety-critical monitoring. Verified accuracy requires a labelled held-out evaluation dataset. Larger datasets, higher-resolution training, and stronger architectures such as DeepLabV3+, U-Net++, or SegFormer can improve performance.
+The bundled demo model is small and operates at low `64 x 64` resolution. Predictions depend on dataset quality and may confuse similar land classes, miss small structures, or produce coarse boundaries. The input relevance gate rejects many obvious non-land images, but heuristic validation can still false-reject valid imagery or miss unusual irrelevant images. The app is not suitable for official land surveys, legal decisions, environmental policy, agricultural planning, or safety-critical monitoring. Verified accuracy requires a labelled held-out evaluation dataset. Larger datasets, higher-resolution training, and stronger architectures such as DeepLabV3+, U-Net++, or SegFormer can improve performance.
 
 ## Screenshots
 
