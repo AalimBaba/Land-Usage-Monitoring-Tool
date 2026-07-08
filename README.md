@@ -2,7 +2,7 @@
 
 A portfolio-ready web app for monitoring land usage from satellite or land imagery with semantic segmentation. The app lets a user upload an image, runs a bundled U-Net model, and returns a predicted land-use map, overlay, class distribution, and model confidence.
 
-Live demo: **TBD after deployment**
+Live demo: **https://land-usage-monitoring-tool.streamlit.app/**
 
 GitHub: https://github.com/AalimBaba/Land-Usage-Monitoring-Tool
 

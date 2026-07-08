@@ -19,7 +19,7 @@ Exact metrics achieved from real evaluation: **not available yet because the eva
 
 ## Live Demo
 
-TBD after deployment.
+https://land-usage-monitoring-tool.streamlit.app/
 
 ## GitHub
 
