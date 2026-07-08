@@ -42,43 +42,47 @@ def css() -> None:
           --muted: #516461;
           --line: #d9e1dc;
           --field: #f4f8f6;
+          --panel: rgba(255,255,255,.93);
+          --panel-strong: rgba(255,255,255,.98);
+          --page-soft: rgba(238,246,242,.92);
+          --page-base: rgba(255,255,255,.96);
           --accent: #1f7a5c;
           --accent-2: #295a8d;
           --warn: #a45f19;
+          --shadow: 0 18px 50px rgba(28,52,46,.10);
+          --upload: #edf6f1;
         }
         .stApp {
           color: var(--ink);
           background:
-            linear-gradient(180deg, rgba(238,246,242,.92), rgba(255,255,255,.96) 42%),
+            linear-gradient(180deg, var(--page-soft), var(--page-base) 42%),
             url("https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=1800&q=80");
           background-size: cover;
           background-attachment: fixed;
         }
-        [data-testid="stHeader"] { background: rgba(255,255,255,.72); backdrop-filter: blur(14px); }
-        .block-container { padding-top: 2.8rem; max-width: 1180px; }
+        [data-testid="stHeader"] { background: color-mix(in srgb, var(--panel) 76%, transparent); backdrop-filter: blur(14px); }
+        .block-container {
+          padding-top: 2.4rem;
+          padding-left: clamp(1rem, 3vw, 3.5rem);
+          padding-right: clamp(1rem, 3vw, 3.5rem);
+          max-width: 1540px;
+        }
         .hero {
-          min-height: 430px;
+          min-height: 390px;
           display: flex;
           flex-direction: column;
           justify-content: center;
-          padding: 3.5rem 0 2rem;
-        }
-        .eyebrow {
-          color: var(--accent);
-          font-weight: 800;
-          letter-spacing: .08em;
-          text-transform: uppercase;
-          font-size: .78rem;
+          padding: 3rem 0 2rem;
         }
         h1 {
-          font-size: clamp(2.4rem, 8vw, 5.9rem);
-          line-height: .94;
+          font-size: clamp(2.5rem, 7vw, 6rem);
+          line-height: .95;
           letter-spacing: 0;
-          margin: .4rem 0 1rem;
-          max-width: 900px;
+          margin: 0 0 1rem;
+          max-width: 980px;
         }
         .lead {
-          max-width: 720px;
+          max-width: 880px;
           color: #263936;
           font-size: clamp(1rem, 2vw, 1.25rem);
           line-height: 1.7;
@@ -86,7 +90,7 @@ def css() -> None:
         .pill-row { display: flex; flex-wrap: wrap; gap: .65rem; margin-top: 1.3rem; }
         .pill {
           border: 1px solid rgba(16,33,31,.16);
-          background: rgba(255,255,255,.74);
+          background: color-mix(in srgb, var(--panel-strong) 82%, transparent);
           border-radius: 999px;
           padding: .55rem .78rem;
           color: #203532;
@@ -122,12 +126,49 @@ def css() -> None:
         }
         .footer-link a { color: var(--accent-2); font-weight: 800; text-decoration: none; }
         [data-testid="stVerticalBlockBorderWrapper"] {
-          background: rgba(255,255,255,.9);
-          box-shadow: 0 18px 50px rgba(28,52,46,.08);
+          background: var(--panel);
+          border-color: var(--line);
+          box-shadow: var(--shadow);
+        }
+        [data-testid="stFileUploaderDropzone"] {
+          background: var(--upload);
+          border: 1px dashed color-mix(in srgb, var(--accent) 60%, var(--line));
+          border-radius: 10px;
+        }
+        [data-testid="stImage"] img {
+          border-radius: 8px;
+          border: 1px solid var(--line);
+          background: var(--field);
+        }
+        div[data-testid="stMetric"] {
+          background: var(--field);
+          border: 1px solid var(--line);
+          border-radius: 8px;
+          padding: .7rem .8rem;
+        }
+        @media (prefers-color-scheme: dark) {
+          :root {
+            --ink: #edf7f3;
+            --muted: #b8c9c4;
+            --line: #314842;
+            --field: #172421;
+            --panel: rgba(16,29,26,.94);
+            --panel-strong: rgba(23,36,33,.98);
+            --page-soft: rgba(8,17,16,.88);
+            --page-base: rgba(8,13,12,.97);
+            --accent: #6ed3a6;
+            --accent-2: #9cc9ff;
+            --warn: #efb15f;
+            --shadow: 0 18px 54px rgba(0,0,0,.38);
+            --upload: #13231f;
+          }
+          .lead, .legend-item, .pill { color: var(--ink); }
+          .note { background: #2a2115; color: #ffdca8; }
+          h1, h2, h3, p, label, span { color: var(--ink); }
         }
         @media (max-width: 700px) {
           .block-container { padding-left: 1rem; padding-right: 1rem; }
-          .hero { min-height: 380px; padding-top: 2.5rem; }
+          .hero { min-height: 340px; padding-top: 2rem; }
         }
         </style>
         """,
@@ -185,7 +226,6 @@ metrics = load_metrics()
 st.markdown(
     """
     <section class="hero">
-      <div class="eyebrow">CV-ready ML demo - Semantic segmentation for land imagery</div>
       <h1>Land Usage Monitoring Tool</h1>
       <p class="lead">
         A deployed Streamlit web app for monitoring land usage from satellite or land imagery. Upload an image,
@@ -330,3 +370,18 @@ with cols[2]:
         st.header("GitHub Repository")
         st.markdown(f'<div class="footer-link"><a href="{REPO_URL}">View source code</a></div>', unsafe_allow_html=True)
         st.write("Source code, training scripts, evaluation pipeline, tests, and deployment configuration are included.")
+
+with st.container(border=True):
+    st.header("About Me")
+    st.write("**Name:** Muhammad Aalim Baba")
+    st.write("**Role:** Computer Science Engineering student / AI & Full-Stack developer")
+    st.markdown(
+        """
+        <div class="legend">
+          <div class="footer-link"><strong>GitHub:</strong> <a href="https://github.com/AalimBaba">github.com/AalimBaba</a></div>
+          <div class="footer-link"><strong>LinkedIn:</strong> <a href="https://www.linkedin.com/in/aalimbaba-/">linkedin.com/in/aalimbaba-</a></div>
+          <div><strong>Portfolio:</strong> Coming soon</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )

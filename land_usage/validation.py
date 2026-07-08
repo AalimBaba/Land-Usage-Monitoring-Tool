@@ -51,6 +51,11 @@ def _color_features(rgb: np.ndarray) -> dict[str, float]:
     saturation = np.where(maxc > 0, delta / maxc, 0.0)
 
     gray = (0.299 * r + 0.587 * g + 0.114 * b).astype(np.uint8)
+    dark_text = (gray < 95) & (saturation < 0.65)
+    row_dark = dark_text.mean(axis=1)
+    col_dark = dark_text.mean(axis=0)
+    text_row_ratio = ((row_dark > 0.012) & (row_dark < 0.45)).mean()
+    text_col_ratio = ((col_dark > 0.012) & (col_dark < 0.55)).mean()
     green = (g > r * 1.05) & (g > b * 1.05) & (g > 55)
     water = (b > g * 1.05) & (b > r * 1.10) & (b > 55)
     soil = (r > 70) & (g > 45) & (b < 150) & (np.abs(r - g) < 90) & (r >= b * 0.95)
@@ -68,9 +73,12 @@ def _color_features(rgb: np.ndarray) -> dict[str, float]:
         "white_ratio": float(((r > 235) & (g > 235) & (b > 235)).mean()),
         "dark_ratio": float((gray < 80).mean()),
         "mean_saturation": float(saturation.mean()),
+        "low_saturation_ratio": float((saturation < 0.18).mean()),
         "natural_ratio": float((green | water | soil | urban_gray).mean()),
         "skin_ratio": float(skin.mean()),
         "central_skin_ratio": float(central_skin),
+        "text_row_ratio": float(text_row_ratio),
+        "text_col_ratio": float(text_col_ratio),
         "unique_rounded_colors": float(np.unique((rgb // 32).reshape(-1, 3), axis=0).shape[0]),
     }
 
@@ -103,12 +111,25 @@ def validate_land_image(image: Image.Image) -> InputValidationResult:
         and features["edge_density"] > 0.015
     )
     sparse_document = features["white_ratio"] > 0.45 and features["mean_saturation"] < 0.20 and features["natural_ratio"] < 0.35
-    if text_heavy_document or sparse_document:
+    card_or_id_layout = (
+        features["text_row_ratio"] > 0.10
+        and features["text_col_ratio"] > 0.18
+        and features["edge_density"] > 0.012
+        and (features["low_saturation_ratio"] > 0.22 or features["light_ratio"] > 0.18 or features["white_ratio"] > 0.10)
+        and features["unique_rounded_colors"] < 95
+    )
+    flat_document_like = (
+        features["text_row_ratio"] > 0.16
+        and features["mean_saturation"] < 0.38
+        and features["unique_rounded_colors"] < 80
+        and features["natural_ratio"] < 0.88
+    )
+    if text_heavy_document or sparse_document or card_or_id_layout or flat_document_like:
         return InputValidationResult(
             file_integrity="Passed",
             image_relevance="Rejected",
             segmentation="Not run",
-            reasons=("Image appears to be a document, certificate, screenshot, or text-heavy graphic.",),
+            reasons=("Image appears to be a document, ID card, certificate, screenshot, or text-heavy graphic.",),
         )
 
     if features["central_skin_ratio"] > 0.22 or (features["skin_ratio"] > 0.28 and features["natural_ratio"] < 0.75):
@@ -127,7 +148,12 @@ def validate_land_image(image: Image.Image) -> InputValidationResult:
             reasons=("Image appears to be a simple synthetic graphic rather than land imagery.",),
         )
 
-    if features["natural_ratio"] >= 0.42 and features["entropy"] >= 3.0 and features["edge_density"] >= 0.005:
+    if (
+        features["natural_ratio"] >= 0.42
+        and features["entropy"] >= 3.0
+        and features["edge_density"] >= 0.005
+        and not (features["low_saturation_ratio"] > 0.22 and features["unique_rounded_colors"] < 95)
+    ):
         return InputValidationResult(
             file_integrity="Passed",
             image_relevance="Suitable",

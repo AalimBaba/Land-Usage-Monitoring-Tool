@@ -29,6 +29,21 @@ def text_heavy_screenshot() -> Image.Image:
     return img
 
 
+def id_card_image() -> Image.Image:
+    img = Image.new("RGB", (640, 400), (224, 229, 232))
+    draw = ImageDraw.Draw(img)
+    draw.rounded_rectangle((58, 52, 582, 338), radius=18, fill=(242, 244, 238), outline=(65, 90, 110), width=4)
+    draw.rectangle((58, 52, 582, 102), fill=(42, 92, 132))
+    draw.rectangle((95, 135, 225, 280), fill=(205, 148, 115), outline=(85, 85, 85), width=2)
+    draw.ellipse((125, 150, 195, 220), fill=(216, 160, 125))
+    draw.rectangle((122, 215, 198, 278), fill=(65, 88, 135))
+    for idx, width in enumerate([260, 310, 230, 290, 180, 260]):
+        y = 132 + idx * 30
+        draw.rectangle((265, y, 265 + width, y + 9), fill=(38, 44, 48))
+    draw.rectangle((265, 282, 510, 305), outline=(90, 90, 90), width=2)
+    return img
+
+
 def portrait_image() -> Image.Image:
     img = Image.new("RGB", (360, 360), (80, 105, 130))
     draw = ImageDraw.Draw(img)
@@ -87,6 +102,13 @@ def test_text_heavy_screenshot_is_rejected():
     result = validate_land_image(text_heavy_screenshot())
 
     assert result.image_relevance == "Rejected"
+
+
+def test_id_card_document_is_rejected():
+    result = validate_land_image(id_card_image())
+
+    assert result.image_relevance == "Rejected"
+    assert result.segmentation == "Not run"
 
 
 def test_portrait_is_rejected():
