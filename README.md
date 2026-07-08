@@ -2,7 +2,7 @@
 
 A portfolio-ready web app for monitoring land usage from satellite or land imagery with semantic segmentation. The app lets a user upload an image, runs a bundled U-Net model, and returns a predicted land-use map, overlay, class distribution, and model confidence.
 
-Live demo: **https://land-usage-monitoring-tool.streamlit.app/**
+Live demo: **https://land-usage-monitoring-tool.streamlit.app**
 
 GitHub: https://github.com/AalimBaba/Land-Usage-Monitoring-Tool
 
@@ -146,7 +146,7 @@ Deployment steps:
 4. Set the main file path to `app.py`.
 5. Open **Advanced settings** and choose Python `3.11`.
 6. Deploy.
-7. Replace the live demo placeholder in this README and `CV_SUMMARY.md` only after the deployed app is verified.
+7. Verify the live app opens, accepts uploads, and runs inference before adding the link to a CV.
 
 Important: Streamlit Community Cloud selects Python version in the app's Advanced settings. If an existing app was created with the wrong Python version, delete and redeploy it with Python `3.11`; rebooting alone may keep the old Python runtime.
 
@@ -161,11 +161,11 @@ The app does not require API keys or environment variables for local inference. 
 
 ## Tech Stack
 
-Python, Streamlit, TensorFlow/Keras CPU runtime, NumPy, Pillow, Matplotlib, scikit-learn, Rasterio, Docker.
+Python, Streamlit, TensorFlow/Keras, U-Net, NumPy, Pillow, Scikit-learn, Matplotlib, Pytest, Streamlit Cloud.
 
 ## Limitations and Ethical Note
 
-The current model is small and operates at low resolution. It may confuse similar land classes, miss small structures, and produce coarse boundaries. It should be treated as an educational and portfolio ML project, not as a source of legal, environmental, agricultural, or policy decisions. Any public use should include dataset provenance, geographic coverage, validation results, and human review.
+The bundled demo model is small and operates at low `64 x 64` resolution. Predictions depend on dataset quality and may confuse similar land classes, miss small structures, or produce coarse boundaries. The app is not suitable for official land surveys, legal decisions, environmental policy, agricultural planning, or safety-critical monitoring. Verified accuracy requires a labelled held-out evaluation dataset. Larger datasets, higher-resolution training, and stronger architectures such as DeepLabV3+, U-Net++, or SegFormer can improve performance.
 
 ## Screenshots
 

@@ -150,6 +150,12 @@ def render_distribution(distribution: dict[str, float], confidence: float) -> No
     st.caption(f"Mean pixel confidence: {confidence:.1f}%. Confidence is model softmax confidence, not real-world accuracy.")
 
 
+def dominant_class(distribution: dict[str, float]) -> tuple[str, float]:
+    if not distribution:
+        return "Unknown", 0.0
+    return max(distribution.items(), key=lambda item: item[1])
+
+
 def render_legend() -> None:
     rows = []
     for idx, name in enumerate(CLASS_NAMES):
@@ -164,16 +170,18 @@ metrics = load_metrics()
 st.markdown(
     """
     <section class="hero">
-      <div class="eyebrow">Semantic Segmentation - Satellite/Land Imagery</div>
+      <div class="eyebrow">CV-ready ML demo - Semantic segmentation for land imagery</div>
       <h1>Land Usage Monitoring Tool</h1>
       <p class="lead">
-        Upload a land or satellite image and run a U-Net segmentation model that estimates pixel-level land-use regions.
-        The project is designed for honest monitoring demos: it shows predictions, class distribution, confidence, and known limitations without claiming perfect accuracy.
+        A deployed Streamlit web app for monitoring land usage from satellite or land imagery. Upload an image,
+        run real TensorFlow/Keras U-Net inference, and review a predicted land-use mask, segmentation overlay,
+        class distribution, and confidence estimate in one portfolio-ready workflow.
       </p>
       <div class="pill-row">
-        <span class="pill">7-class segmentation</span>
-        <span class="pill">Real model inference</span>
-        <span class="pill">Deployment-ready Streamlit app</span>
+        <span class="pill">7-class semantic segmentation</span>
+        <span class="pill">U-Net model inference</span>
+        <span class="pill">Overlay + class distribution</span>
+        <span class="pill">Live on Streamlit Cloud</span>
       </div>
     </section>
     """,
@@ -183,8 +191,13 @@ st.markdown(
 with st.container(border=True):
     st.header("Try the Model")
     st.write(
-        "Upload a PNG or JPEG land/satellite image. The app resizes it to the model's 64 x 64 input, "
-        "runs the bundled U-Net, and displays the segmentation overlay and class mix."
+        "Upload a clear PNG or JPEG satellite/land image, such as a crop, neighborhood, water body, field, "
+        "or mixed land-cover scene. The bundled demo model resizes every image to its expected 64 x 64 input, "
+        "runs U-Net inference, and displays the segmentation overlay and class mix."
+    )
+    st.caption(
+        "This is a compact demo model, not a survey-grade system. Results are best interpreted as a portfolio "
+        "example of an end-to-end segmentation workflow."
     )
     upload = st.file_uploader("Upload image", type=["png", "jpg", "jpeg"], accept_multiple_files=False)
 
@@ -198,9 +211,14 @@ with st.container(border=True):
                 result = predict_image(model, image)
 
             left, mid, right = st.columns(3)
-            left.image(image, caption="Uploaded image", use_column_width=True)
-            mid.image(result.mask_image, caption="Predicted land-use map", use_column_width=True)
-            right.image(result.overlay_image, caption="Prediction overlay", use_column_width=True)
+            left.image(image, caption="Uploaded Image", use_column_width=True)
+            mid.image(result.mask_image, caption="Predicted Land-Use Mask", use_column_width=True)
+            right.image(result.overlay_image, caption="Segmentation Overlay", use_column_width=True)
+            dominant_name, dominant_pct = dominant_class(result.class_distribution)
+            st.success(
+                f"The model estimates the dominant land-use class as {dominant_name} "
+                f"with {dominant_pct:.1f}% predicted pixel share."
+            )
             render_distribution(result.class_distribution, result.mean_confidence)
             st.markdown("**Legend**")
             render_legend()
@@ -248,7 +266,11 @@ with st.container(border=True):
     )
     if not metrics:
         st.markdown(
-            '<p class="note">No evaluation dataset is included in this repository, so this live build does not display fabricated metrics. Run <code>python evaluate_model.py --data-dir "path/to/SEN-2 LULC"</code> after downloading the dataset to generate <code>metrics.json</code>.</p>',
+            '<div class="note"><strong>Held-out evaluation dataset not included in repository.</strong><br>'
+            'The metrics pipeline is implemented, but this live demo does not fabricate scores. '
+            'Run <code>python evaluate_model.py --data-dir "path/to/SEN-2 LULC" --model unet_model.h5</code> '
+            'with labelled image/mask pairs to generate <code>metrics.json</code>. Supported metrics include '
+            'Pixel Accuracy, Mean IoU, Mean Dice, Macro F1, per-class IoU, precision, recall, F1-score, and a confusion matrix.</div>',
             unsafe_allow_html=True,
         )
 
@@ -256,16 +278,18 @@ cols = st.columns(3)
 with cols[0]:
     with st.container(border=True):
         st.header("Tech Stack")
-        st.write("Python, Streamlit, TensorFlow/Keras, NumPy, Pillow, scikit-learn, Matplotlib, Rasterio.")
+        st.write("Python, Streamlit, TensorFlow/Keras, U-Net, NumPy, Pillow, Scikit-learn, Matplotlib, Pytest, Streamlit Cloud.")
 with cols[1]:
     with st.container(border=True):
         st.header("Limitations")
         st.write(
-            "The bundled model is small and trained at 64 x 64 resolution. It may miss fine boundaries, "
-            "confuse visually similar land types, and should not be used for policy or safety decisions without stronger validation."
+            "The bundled demo model is trained at low 64 x 64 resolution, so predictions depend heavily on dataset quality "
+            "and may miss fine boundaries or confuse visually similar land classes. It is not suitable for official land "
+            "surveys or policy decisions. Verified accuracy requires a labelled held-out evaluation dataset; larger datasets "
+            "and stronger architectures can improve performance."
         )
 with cols[2]:
     with st.container(border=True):
         st.header("GitHub Repository")
         st.markdown(f'<div class="footer-link"><a href="{REPO_URL}">View source code</a></div>', unsafe_allow_html=True)
-        st.write("Live demo link belongs in the README after deployment.")
+        st.write("Source code, training scripts, evaluation pipeline, tests, and deployment configuration are included.")

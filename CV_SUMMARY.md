@@ -2,8 +2,8 @@
 
 ## Resume Bullets
 
-- Built and deployed a Streamlit land-usage monitoring app that performs real U-Net semantic segmentation inference on uploaded satellite/land images, returning predicted masks, overlays, class distributions, and confidence summaries.
-- Refactored the ML workflow into a reproducible training/evaluation pipeline with aligned preprocessing, data augmentation, train/validation/test splitting, Dice/focal loss, checkpointing, early stopping, learning-rate scheduling, and segmentation metrics.
+- Built and deployed a Streamlit-based land usage monitoring web app using U-Net inference to generate segmentation masks, overlays, class distributions, and confidence estimates from uploaded satellite imagery.
+- Modularized preprocessing, inference, evaluation, and testing workflows with deployment-safe dependencies and Streamlit Cloud hosting for a reproducible ML demo.
 
 ## Project Description
 
@@ -11,7 +11,7 @@ Land Usage Monitoring Tool is a web-based semantic segmentation project for esti
 
 ## Tech Stack
 
-Python, Streamlit, TensorFlow/Keras CPU runtime, NumPy, Pillow, Matplotlib, scikit-learn, Rasterio, Docker.
+Python, Streamlit, TensorFlow/Keras, U-Net, NumPy, Pillow, Scikit-learn, Matplotlib, Pytest, Streamlit Cloud.
 
 ## Metrics
 
@@ -19,7 +19,7 @@ Exact metrics achieved from real evaluation: **not available yet because the eva
 
 ## Live Demo
 
-https://land-usage-monitoring-tool.streamlit.app/
+https://land-usage-monitoring-tool.streamlit.app
 
 ## GitHub
 
