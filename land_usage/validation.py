@@ -16,6 +16,7 @@ class InputValidationResult:
     image_relevance: RelevanceStatus
     segmentation: Literal["Run", "Not run"]
     reasons: tuple[str, ...]
+    diagnostics: dict[str, float | int | str | list[str]]
 
     @property
     def is_suitable(self) -> bool:
@@ -36,13 +37,33 @@ def _entropy(gray: np.ndarray) -> float:
     return float(-(probs * np.log2(probs)).sum())
 
 
-def _edge_density(gray: np.ndarray) -> float:
-    diff_x = np.abs(np.diff(gray.astype(np.int16), axis=1)) > 35
-    diff_y = np.abs(np.diff(gray.astype(np.int16), axis=0)) > 35
-    return float((diff_x.mean() + diff_y.mean()) / 2)
+def _edge_map(gray: np.ndarray, threshold: int = 35) -> np.ndarray:
+    diff_x = np.zeros_like(gray, dtype=bool)
+    diff_y = np.zeros_like(gray, dtype=bool)
+    diff_x[:, 1:] = np.abs(np.diff(gray.astype(np.int16), axis=1)) > threshold
+    diff_y[1:, :] = np.abs(np.diff(gray.astype(np.int16), axis=0)) > threshold
+    return diff_x | diff_y
 
 
-def _color_features(rgb: np.ndarray) -> dict[str, float]:
+def _tile_stats(gray: np.ndarray, tile: int = 32) -> tuple[float, float, float]:
+    h, w = gray.shape
+    stds = []
+    means = []
+    for y in range(0, h, tile):
+        for x in range(0, w, tile):
+            patch = gray[y : y + tile, x : x + tile]
+            if patch.size:
+                stds.append(float(patch.std()))
+                means.append(float(patch.mean()))
+    std_arr = np.asarray(stds, dtype=np.float32)
+    mean_arr = np.asarray(means, dtype=np.float32)
+    return float(std_arr.mean()), float((std_arr > 14).mean()), float(mean_arr.std())
+
+
+def _extract_features(image: Image.Image) -> dict[str, float | int]:
+    width, height = image.size
+    resized = image.convert("RGB").resize((256, 256), Image.Resampling.BILINEAR)
+    rgb = np.asarray(resized, dtype=np.uint8)
     arr = rgb.astype(np.float32)
     r, g, b = arr[..., 0], arr[..., 1], arr[..., 2]
     maxc = arr.max(axis=2)
@@ -51,128 +72,211 @@ def _color_features(rgb: np.ndarray) -> dict[str, float]:
     saturation = np.where(maxc > 0, delta / maxc, 0.0)
 
     gray = (0.299 * r + 0.587 * g + 0.114 * b).astype(np.uint8)
+    top_band = slice(0, 38)
+    top_third = slice(0, 86)
+    top_dark_ratio = float((gray[top_band, :] < 75).mean())
+    top_sky_ratio = float(((b[top_third, :] > 120) & (b[top_third, :] > r[top_third, :] * 1.12) & (b[top_third, :] > g[top_third, :] * 1.03)).mean())
+    edges = _edge_map(gray)
+    row_edge = edges.mean(axis=1)
+    col_edge = edges.mean(axis=0)
+
     dark_text = (gray < 95) & (saturation < 0.65)
     row_dark = dark_text.mean(axis=1)
     col_dark = dark_text.mean(axis=0)
-    text_row_ratio = ((row_dark > 0.012) & (row_dark < 0.45)).mean()
-    text_col_ratio = ((col_dark > 0.012) & (col_dark < 0.55)).mean()
+    text_row_ratio = float(((row_dark > 0.012) & (row_dark < 0.45)).mean())
+    text_col_ratio = float(((col_dark > 0.012) & (col_dark < 0.55)).mean())
+    horizontal_line_density = float((row_edge > 0.20).mean())
+    vertical_line_density = float((col_edge > 0.20).mean())
+
+    border = np.zeros_like(edges, dtype=bool)
+    band = 12
+    border[:band, :] = True
+    border[-band:, :] = True
+    border[:, :band] = True
+    border[:, -band:] = True
+    border_edge_density = float(edges[border].mean())
+    inner_edge_density = float(edges[~border].mean())
+    rectangular_boundary_score = border_edge_density / max(inner_edge_density, 0.001)
+
     green = (g > r * 1.05) & (g > b * 1.05) & (g > 55)
     water = (b > g * 1.05) & (b > r * 1.10) & (b > 55)
     soil = (r > 70) & (g > 45) & (b < 150) & (np.abs(r - g) < 90) & (r >= b * 0.95)
-    urban_gray = (saturation < 0.24) & (gray > 65) & (gray < 215)
-    skin = (r > 95) & (g > 40) & (b > 20) & (r > g) & (r > b) & ((r - g) > 15) & (delta > 15)
+    urban_gray = (saturation < 0.28) & (gray > 55) & (gray < 220)
+    natural_ratio = float((green | water | soil | urban_gray).mean())
+    land_color_mix = sum(float(mask.mean()) > 0.05 for mask in (green, water, soil, urban_gray))
 
+    skin = (r > 95) & (g > 40) & (b > 20) & (r > g) & (r > b) & ((r - g) > 15) & (delta > 15)
     h, w = gray.shape
-    central_skin = skin[h // 5 : h * 4 // 5, w // 5 : w * 4 // 5].mean()
+    central_skin = float(skin[h // 5 : h * 4 // 5, w // 5 : w * 4 // 5].mean())
+
+    tile_texture_mean, distributed_detail_ratio, spatial_variance = _tile_stats(gray)
+    unique_rounded_colors = int(np.unique((rgb // 32).reshape(-1, 3), axis=0).shape[0])
 
     return {
+        "width": int(width),
+        "height": int(height),
+        "aspect_ratio": float(width / max(height, 1)),
         "entropy": _entropy(gray),
-        "std": float(gray.std()),
-        "edge_density": _edge_density(gray),
+        "edge_density": float(edges.mean()),
+        "line_density": float((horizontal_line_density + vertical_line_density) / 2),
+        "horizontal_line_density": horizontal_line_density,
+        "vertical_line_density": vertical_line_density,
+        "rectangular_boundary_score": float(rectangular_boundary_score),
+        "text_density_estimate": float((text_row_ratio + text_col_ratio) / 2),
+        "text_row_ratio": text_row_ratio,
+        "text_col_ratio": text_col_ratio,
+        "colour_diversity": unique_rounded_colors,
+        "mean_saturation": float(saturation.mean()),
+        "low_saturation_ratio": float((saturation < 0.18).mean()),
         "light_ratio": float((gray > 220).mean()),
         "white_ratio": float(((r > 235) & (g > 235) & (b > 235)).mean()),
         "dark_ratio": float((gray < 80).mean()),
-        "mean_saturation": float(saturation.mean()),
-        "low_saturation_ratio": float((saturation < 0.18).mean()),
-        "natural_ratio": float((green | water | soil | urban_gray).mean()),
+        "top_dark_ratio": top_dark_ratio,
+        "top_sky_ratio": top_sky_ratio,
+        "texture_mean": tile_texture_mean,
+        "distributed_detail_ratio": distributed_detail_ratio,
+        "spatial_variance": spatial_variance,
+        "natural_ratio": natural_ratio,
+        "land_color_mix": int(land_color_mix),
         "skin_ratio": float(skin.mean()),
-        "central_skin_ratio": float(central_skin),
-        "text_row_ratio": float(text_row_ratio),
-        "text_col_ratio": float(text_col_ratio),
-        "unique_rounded_colors": float(np.unique((rgb // 32).reshape(-1, 3), axis=0).shape[0]),
+        "central_skin_ratio": central_skin,
     }
 
 
-def validate_land_image(image: Image.Image) -> InputValidationResult:
-    """Reject obvious non-land imagery before running the segmentation model.
+def _score_document(features: dict[str, float | int]) -> tuple[int, list[str]]:
+    score = 0
+    fired: list[str] = []
 
-    This is a lightweight semantic relevance gate designed for Streamlit Cloud.
-    It uses document/text, blank-image, skin-tone, texture, and land-color cues.
-    The gate is intentionally conservative and is not a calibrated classifier.
-    """
+    paper_background = features["light_ratio"] > 0.45 and features["low_saturation_ratio"] > 0.55
+    if paper_background:
+        score += 2
+        fired.append("large uniform paper-like background")
 
-    resized = image.convert("RGB").resize((256, 256), Image.Resampling.BILINEAR)
-    rgb = np.asarray(resized, dtype=np.uint8)
-    features = _color_features(rgb)
-    reasons: list[str] = []
+    text_structure = features["text_density_estimate"] > 0.22 and features["text_row_ratio"] > 0.08
+    if text_structure:
+        score += 2
+        fired.append("repeated text-line structure")
 
-    if features["std"] < 8 or features["entropy"] < 2.0:
-        return InputValidationResult(
-            file_integrity="Passed",
-            image_relevance="Rejected",
-            segmentation="Not run",
-            reasons=("Image is blank or nearly blank.",),
-        )
-
-    text_heavy_document = (
-        features["light_ratio"] > 0.55
-        and features["dark_ratio"] > 0.01
-        and features["mean_saturation"] < 0.25
-        and features["edge_density"] > 0.015
+    screenshot_text_layout = (
+        features["light_ratio"] > 0.45
+        and features["low_saturation_ratio"] > 0.60
+        and features["text_col_ratio"] > 0.75
+        and features["edge_density"] > 0.04
     )
-    sparse_document = features["white_ratio"] > 0.45 and features["mean_saturation"] < 0.20 and features["natural_ratio"] < 0.35
-    card_or_id_layout = (
-        features["text_row_ratio"] > 0.10
-        and features["text_col_ratio"] > 0.18
-        and features["edge_density"] > 0.012
-        and (features["low_saturation_ratio"] > 0.22 or features["light_ratio"] > 0.18 or features["white_ratio"] > 0.10)
-        and features["unique_rounded_colors"] < 95
-    )
-    flat_document_like = (
-        features["text_row_ratio"] > 0.16
-        and features["mean_saturation"] < 0.38
-        and features["unique_rounded_colors"] < 80
-        and features["natural_ratio"] < 0.88
-    )
-    if text_heavy_document or sparse_document or card_or_id_layout or flat_document_like:
-        return InputValidationResult(
-            file_integrity="Passed",
-            image_relevance="Rejected",
-            segmentation="Not run",
-            reasons=("Image appears to be a document, ID card, certificate, screenshot, or text-heavy graphic.",),
-        )
+    if screenshot_text_layout:
+        score += 2
+        fired.append("text-heavy screenshot/document layout")
 
-    if features["central_skin_ratio"] > 0.22 or (features["skin_ratio"] > 0.28 and features["natural_ratio"] < 0.75):
-        return InputValidationResult(
-            file_integrity="Passed",
-            image_relevance="Rejected",
-            segmentation="Not run",
-            reasons=("Image appears to contain a person or portrait rather than aerial land imagery.",),
-        )
+    card_boundary = features["rectangular_boundary_score"] > 1.35 and features["edge_density"] > 0.012
+    if card_boundary:
+        score += 1
+        fired.append("strong rectangular page/card boundary")
 
-    if features["unique_rounded_colors"] < 12 and features["entropy"] < 3.1 and features["edge_density"] < 0.05:
-        return InputValidationResult(
-            file_integrity="Passed",
-            image_relevance="Rejected",
-            segmentation="Not run",
-            reasons=("Image appears to be a simple synthetic graphic rather than land imagery.",),
-        )
+    low_scene_diversity = features["colour_diversity"] < 95 and features["texture_mean"] < 30
+    if low_scene_diversity:
+        score += 1
+        fired.append("low spatial colour/texture diversity")
 
-    if (
-        features["natural_ratio"] >= 0.42
-        and features["entropy"] >= 3.0
-        and features["edge_density"] >= 0.005
-        and not (features["low_saturation_ratio"] > 0.22 and features["unique_rounded_colors"] < 95)
-    ):
-        return InputValidationResult(
-            file_integrity="Passed",
-            image_relevance="Suitable",
-            segmentation="Run",
-            reasons=("Image has land/aerial-like colour and texture patterns.",),
-        )
+    document_layout = 0.55 <= features["aspect_ratio"] <= 1.95 and features["line_density"] > 0.06
+    if document_layout:
+        score += 1
+        fired.append("document-like aspect/layout")
 
-    if features["natural_ratio"] >= 0.25 and features["entropy"] >= 2.7:
-        reasons.append("Image has some land-like visual cues, but relevance is uncertain.")
-        return InputValidationResult(
-            file_integrity="Passed",
-            image_relevance="Uncertain",
-            segmentation="Not run",
-            reasons=tuple(reasons),
-        )
+    flat_document = features["low_saturation_ratio"] > 0.45 and features["colour_diversity"] < 85
+    if flat_document:
+        score += 1
+        fired.append("flat low-saturation document/card appearance")
 
+    return score, fired
+
+
+def _score_aerial(features: dict[str, float | int]) -> tuple[int, list[str]]:
+    score = 0
+    fired: list[str] = []
+
+    if features["natural_ratio"] > 0.45:
+        score += 2
+        fired.append("land-cover-like colour regions")
+    if features["land_color_mix"] >= 2:
+        score += 2
+        fired.append("mixed vegetation/urban/water/soil palette")
+    if features["entropy"] > 4.0 and features["texture_mean"] > 12:
+        score += 1
+        fired.append("high texture diversity")
+    if features["distributed_detail_ratio"] > 0.35:
+        score += 1
+        fired.append("detail distributed across frame")
+    if features["spatial_variance"] > 12:
+        score += 1
+        fired.append("land-cover-like spatial variance")
+    if features["colour_diversity"] > 120:
+        score += 1
+        fired.append("high colour diversity")
+    if features["white_ratio"] < 0.20:
+        score += 1
+        fired.append("no dominant white page background")
+
+    return score, fired
+
+
+def _result(status: RelevanceStatus, reason: str, features: dict[str, float | int], doc_score: int, aerial_score: int, fired: list[str]) -> InputValidationResult:
     return InputValidationResult(
         file_integrity="Passed",
-        image_relevance="Rejected",
-        segmentation="Not run",
-        reasons=("Image does not appear to be satellite or aerial land imagery.",),
+        image_relevance=status,
+        segmentation="Run" if status == "Suitable" else "Not run",
+        reasons=(reason,),
+        diagnostics={**features, "document_score": doc_score, "aerial_land_score": aerial_score, "thresholds_fired": fired},
     )
+
+
+def validate_land_image(image: Image.Image) -> InputValidationResult:
+    """Classify upload relevance before running the U-Net model.
+
+    The validator is a lightweight multi-stage gate for Streamlit Cloud. It
+    combines document/person rejection evidence with positive aerial-land
+    evidence. Dense urban geometry alone is not enough to reject an image.
+    """
+
+    features = _extract_features(image)
+    doc_score, doc_fired = _score_document(features)
+    aerial_score, aerial_fired = _score_aerial(features)
+    fired = [f"document: {item}" for item in doc_fired] + [f"aerial: {item}" for item in aerial_fired]
+
+    if features["entropy"] < 1.2 or (features["texture_mean"] < 3 and features["colour_diversity"] < 6):
+        return _result("Rejected", "Image is blank or nearly blank.", features, doc_score, aerial_score, fired)
+
+    if features["central_skin_ratio"] > 0.38 or (features["skin_ratio"] > 0.30 and aerial_score < 4):
+        return _result("Rejected", "Person or portrait-like content detected.", features, doc_score, aerial_score, fired)
+
+    if doc_score >= 6 and aerial_score <= 3:
+        return _result("Rejected", "Strong document-like layout detected.", features, doc_score, aerial_score, fired)
+
+    if doc_score >= 6 and aerial_score <= 4:
+        return _result("Rejected", "Strong document-like layout detected.", features, doc_score, aerial_score, fired)
+
+    screenshot_ui_with_land = features["top_dark_ratio"] > 0.35 and features["light_ratio"] > 0.12 and aerial_score >= 4
+    if screenshot_ui_with_land:
+        return _result("Uncertain", "Screenshot-like browser UI detected around possible land imagery; manual continuation is available.", features, doc_score, aerial_score, fired)
+
+    ground_level_horizon = (
+        features["top_sky_ratio"] > 0.70
+        and features["edge_density"] < 0.025
+        and features["texture_mean"] < 13
+        and aerial_score >= 4
+    )
+    if ground_level_horizon:
+        return _result("Uncertain", "Ground-level landscape cues detected; manual continuation is available.", features, doc_score, aerial_score, fired)
+
+    if aerial_score >= 6 and doc_score <= 5:
+        return _result("Suitable", "Multiple aerial/land characteristics detected.", features, doc_score, aerial_score, fired)
+
+    if aerial_score >= 5 and aerial_score > doc_score:
+        return _result("Suitable", "Aerial/land evidence is stronger than document-like evidence.", features, doc_score, aerial_score, fired)
+
+    if doc_score >= 5 and aerial_score <= 4:
+        return _result("Rejected", "Strong document-like layout detected.", features, doc_score, aerial_score, fired)
+
+    if aerial_score < 3 and doc_score < 4:
+        return _result("Rejected", "Image contains insufficient aerial/land characteristics.", features, doc_score, aerial_score, fired)
+
+    return _result("Uncertain", "Input is ambiguous; manual continuation is available.", features, doc_score, aerial_score, fired)

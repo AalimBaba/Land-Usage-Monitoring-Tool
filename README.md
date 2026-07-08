@@ -63,7 +63,7 @@ For unsplit datasets, the scripts create reproducible train/validation/test spli
 
 The bundled model is a compact U-Net with input shape `64 x 64 x 3` and seven output classes. It is suitable for demonstration and experimentation, not production-grade monitoring.
 
-The deployed app includes a lightweight pre-inference validation layer. This gate checks file integrity and uses image statistics, document/text-density cues, skin-tone layout, blank-image detection, texture, and land-colour patterns to reject obviously irrelevant inputs before U-Net inference. It is intentionally lightweight for Streamlit Cloud and should be treated as a practical heuristic, not a calibrated semantic classifier.
+The deployed app includes a lightweight multi-stage pre-inference validation layer. This gate checks file integrity, scores document-like evidence, scores aerial/land evidence, and returns `Suitable`, `Uncertain`, or `Rejected` before U-Net inference. It uses image statistics, document/text-density cues, skin-tone layout, blank-image detection, texture, colour diversity, spatial variance, and land-colour patterns. It is intentionally lightweight for Streamlit Cloud and should be treated as an explainable heuristic, not a calibrated semantic classifier.
 
 ## Why the Original Accuracy Was Limited
 

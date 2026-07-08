@@ -72,6 +72,59 @@ def satellite_like_image(seed: int = 4) -> Image.Image:
     return Image.fromarray(np.clip(arr.astype(np.int16) + noise, 0, 255).astype(np.uint8))
 
 
+def dense_urban_aerial_image(seed: int = 12) -> Image.Image:
+    rng = np.random.default_rng(seed)
+    arr = np.full((256, 256, 3), (118, 122, 118), dtype=np.uint8)
+    for y in range(10, 246, 28):
+        arr[y : y + 5, :] = (72, 75, 78)
+    for x in range(14, 246, 31):
+        arr[:, x : x + 5] = (70, 74, 77)
+    for y in range(18, 230, 32):
+        for x in range(22, 230, 35):
+            colour = rng.choice([(165, 100, 78), (154, 145, 125), (92, 112, 85), (176, 168, 92)])
+            arr[y : y + 15, x : x + 20] = colour
+    arr[165:205, 20:75] = (64, 132, 82)
+    arr[30:62, 185:240] = (55, 112, 165)
+    noise = rng.normal(0, 17, arr.shape)
+    return Image.fromarray(np.clip(arr.astype(np.int16) + noise, 0, 255).astype(np.uint8))
+
+
+def rural_farmland_aerial_image(seed: int = 15) -> Image.Image:
+    rng = np.random.default_rng(seed)
+    arr = np.zeros((256, 256, 3), dtype=np.uint8)
+    arr[:90, :130] = (85, 146, 75)
+    arr[:90, 130:] = (192, 174, 88)
+    arr[90:175, :110] = (128, 104, 67)
+    arr[90:175, 110:] = (96, 156, 86)
+    arr[175:, :] = (178, 158, 76)
+    arr[:, 122:132] = (112, 110, 102)
+    arr[86:96, :] = (105, 103, 98)
+    noise = rng.normal(0, 14, arr.shape)
+    return Image.fromarray(np.clip(arr.astype(np.int16) + noise, 0, 255).astype(np.uint8))
+
+
+def forest_satellite_image(seed: int = 19) -> Image.Image:
+    rng = np.random.default_rng(seed)
+    base = np.full((256, 256, 3), (42, 112, 62), dtype=np.int16)
+    canopy = rng.normal(0, 28, base.shape)
+    arr = np.clip(base + canopy, 0, 255).astype(np.uint8)
+    arr[90:110, :] = (92, 98, 88)
+    arr[:, 170:180] = (82, 90, 86)
+    return Image.fromarray(arr)
+
+
+def coastline_aerial_image(seed: int = 22) -> Image.Image:
+    rng = np.random.default_rng(seed)
+    arr = np.full((256, 256, 3), (58, 123, 178), dtype=np.uint8)
+    arr[:, :112] = (78, 142, 82)
+    arr[120:, :150] = (190, 172, 95)
+    for offset in range(0, 256):
+        x = 105 + int(12 * np.sin(offset / 18))
+        arr[offset, max(0, x - 3) : min(256, x + 5)] = (222, 206, 142)
+    noise = rng.normal(0, 16, arr.shape)
+    return Image.fromarray(np.clip(arr.astype(np.int16) + noise, 0, 255).astype(np.uint8))
+
+
 def aerial_land_image(seed: int = 9) -> Image.Image:
     rng = np.random.default_rng(seed)
     arr = np.full((256, 256, 3), (85, 140, 78), dtype=np.uint8)
@@ -88,6 +141,39 @@ def ambiguous_object_graphic() -> Image.Image:
     draw = ImageDraw.Draw(img)
     draw.ellipse((80, 70, 220, 210), fill=(190, 20, 30))
     draw.rectangle((120, 210, 180, 270), fill=(40, 40, 45))
+    return img
+
+
+def city_map_image() -> Image.Image:
+    img = Image.new("RGB", (360, 360), (235, 232, 218))
+    draw = ImageDraw.Draw(img)
+    for x in range(20, 350, 35):
+        draw.line((x, 0, x + 30, 360), fill=(235, 160, 80), width=3)
+    for y in range(25, 350, 42):
+        draw.line((0, y, 360, y + 20), fill=(95, 115, 180), width=3)
+    draw.rectangle((40, 220, 125, 300), fill=(100, 165, 100))
+    return img
+
+
+def ground_landscape_photo(seed: int = 31) -> Image.Image:
+    rng = np.random.default_rng(seed)
+    arr = np.zeros((256, 256, 3), dtype=np.uint8)
+    arr[:105, :] = (110, 170, 220)
+    arr[105:150, :] = (70, 140, 72)
+    arr[150:, :] = (120, 92, 55)
+    arr[80:130, 40:95] = (42, 105, 48)
+    noise = rng.normal(0, 12, arr.shape)
+    return Image.fromarray(np.clip(arr.astype(np.int16) + noise, 0, 255).astype(np.uint8))
+
+
+def screenshot_with_satellite_image(seed: int = 36) -> Image.Image:
+    img = Image.new("RGB", (520, 360), (245, 246, 247))
+    draw = ImageDraw.Draw(img)
+    draw.rectangle((0, 0, 520, 48), fill=(45, 48, 55))
+    draw.rectangle((20, 14, 245, 32), fill=(225, 225, 225))
+    sat = dense_urban_aerial_image(seed).resize((430, 260), Image.Resampling.BILINEAR)
+    img.paste(sat, (45, 78))
+    draw.rectangle((45, 78, 475, 338), outline=(40, 40, 40), width=2)
     return img
 
 
@@ -130,6 +216,31 @@ def test_valid_satellite_like_image_is_accepted():
     assert result.segmentation == "Run"
 
 
+def test_dense_urban_aerial_image_is_accepted():
+    result = validate_land_image(dense_urban_aerial_image())
+
+    assert result.image_relevance == "Suitable"
+    assert result.segmentation == "Run"
+
+
+def test_rural_farmland_aerial_image_is_accepted():
+    result = validate_land_image(rural_farmland_aerial_image())
+
+    assert result.image_relevance == "Suitable"
+
+
+def test_forest_satellite_image_is_accepted():
+    result = validate_land_image(forest_satellite_image())
+
+    assert result.image_relevance == "Suitable"
+
+
+def test_water_coastline_aerial_image_is_accepted():
+    result = validate_land_image(coastline_aerial_image())
+
+    assert result.image_relevance == "Suitable"
+
+
 def test_valid_aerial_land_image_is_accepted():
     result = validate_land_image(aerial_land_image())
 
@@ -142,3 +253,21 @@ def test_ambiguous_non_land_graphic_warns_or_rejects():
 
     assert result.image_relevance in {"Uncertain", "Rejected"}
     assert result.segmentation == "Not run"
+
+
+def test_city_map_is_uncertain():
+    result = validate_land_image(city_map_image())
+
+    assert result.image_relevance == "Uncertain"
+
+
+def test_ground_level_landscape_is_uncertain():
+    result = validate_land_image(ground_landscape_photo())
+
+    assert result.image_relevance == "Uncertain"
+
+
+def test_screenshot_containing_satellite_image_is_uncertain():
+    result = validate_land_image(screenshot_with_satellite_image())
+
+    assert result.image_relevance == "Uncertain"
