@@ -7,4 +7,4 @@ venv/
 training_log.csv
 metrics.json
 *.keras
-
+feedback/*.jsonl

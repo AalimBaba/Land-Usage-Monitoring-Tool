@@ -76,6 +76,8 @@ def _extract_features(image: Image.Image) -> dict[str, float | int]:
     top_third = slice(0, 86)
     top_dark_ratio = float((gray[top_band, :] < 75).mean())
     top_sky_ratio = float(((b[top_third, :] > 120) & (b[top_third, :] > r[top_third, :] * 1.12) & (b[top_third, :] > g[top_third, :] * 1.03)).mean())
+    warm_indoor = ((r > 110) & (g > 85) & (b < 150) & (r >= b * 1.15) & (saturation < 0.55))
+    neutral_surface = (saturation < 0.20) & (gray > 90) & (gray < 235)
     edges = _edge_map(gray)
     row_edge = edges.mean(axis=1)
     col_edge = edges.mean(axis=0)
@@ -140,7 +142,32 @@ def _extract_features(image: Image.Image) -> dict[str, float | int]:
         "land_color_mix": int(land_color_mix),
         "skin_ratio": float(skin.mean()),
         "central_skin_ratio": central_skin,
+        "warm_indoor_ratio": float(warm_indoor.mean()),
+        "neutral_surface_ratio": float(neutral_surface.mean()),
     }
+
+
+def _score_indoor(features: dict[str, float | int]) -> tuple[int, list[str]]:
+    score = 0
+    fired: list[str] = []
+
+    if features["top_sky_ratio"] > 0.70 and features["edge_density"] < 0.025:
+        score += 2
+        fired.append("ground-level horizon/sky band")
+    if features["warm_indoor_ratio"] > 0.35 and features["distributed_detail_ratio"] < 0.45:
+        score += 2
+        fired.append("large warm indoor/object-like surfaces")
+    if features["neutral_surface_ratio"] > 0.45 and features["texture_mean"] < 24:
+        score += 1
+        fired.append("large smooth wall/floor-like surfaces")
+    if features["land_color_mix"] <= 2 and features["colour_diversity"] < 130:
+        score += 1
+        fired.append("limited top-down land-cover diversity")
+    if features["edge_density"] < 0.025 and features["distributed_detail_ratio"] < 0.35:
+        score += 1
+        fired.append("low distributed aerial texture")
+
+    return score, fired
 
 
 def _score_document(features: dict[str, float | int]) -> tuple[int, list[str]]:
@@ -219,13 +246,27 @@ def _score_aerial(features: dict[str, float | int]) -> tuple[int, list[str]]:
     return score, fired
 
 
-def _result(status: RelevanceStatus, reason: str, features: dict[str, float | int], doc_score: int, aerial_score: int, fired: list[str]) -> InputValidationResult:
+def _result(
+    status: RelevanceStatus,
+    reason: str,
+    features: dict[str, float | int],
+    doc_score: int,
+    aerial_score: int,
+    indoor_score: int,
+    fired: list[str],
+) -> InputValidationResult:
     return InputValidationResult(
         file_integrity="Passed",
         image_relevance=status,
         segmentation="Run" if status == "Suitable" else "Not run",
         reasons=(reason,),
-        diagnostics={**features, "document_score": doc_score, "aerial_land_score": aerial_score, "thresholds_fired": fired},
+        diagnostics={
+            **features,
+            "document_score": doc_score,
+            "aerial_land_score": aerial_score,
+            "indoor_ground_score": indoor_score,
+            "thresholds_fired": fired,
+        },
     )
 
 
@@ -239,24 +280,28 @@ def validate_land_image(image: Image.Image) -> InputValidationResult:
 
     features = _extract_features(image)
     doc_score, doc_fired = _score_document(features)
+    indoor_score, indoor_fired = _score_indoor(features)
     aerial_score, aerial_fired = _score_aerial(features)
-    fired = [f"document: {item}" for item in doc_fired] + [f"aerial: {item}" for item in aerial_fired]
+    fired = [f"document: {item}" for item in doc_fired] + [f"indoor: {item}" for item in indoor_fired] + [f"aerial: {item}" for item in aerial_fired]
 
     if features["entropy"] < 1.2 or (features["texture_mean"] < 3 and features["colour_diversity"] < 6):
-        return _result("Rejected", "Image is blank or nearly blank.", features, doc_score, aerial_score, fired)
+        return _result("Rejected", "Image is blank or nearly blank.", features, doc_score, aerial_score, indoor_score, fired)
+
+    if indoor_score >= 3 and features["warm_indoor_ratio"] > 0.35:
+        return _result("Rejected", "Indoor or ground-level photo characteristics detected.", features, doc_score, aerial_score, indoor_score, fired)
 
     if features["central_skin_ratio"] > 0.38 or (features["skin_ratio"] > 0.30 and aerial_score < 4):
-        return _result("Rejected", "Person or portrait-like content detected.", features, doc_score, aerial_score, fired)
+        return _result("Rejected", "Person or portrait-like content detected.", features, doc_score, aerial_score, indoor_score, fired)
 
     if doc_score >= 6 and aerial_score <= 3:
-        return _result("Rejected", "Strong document-like layout detected.", features, doc_score, aerial_score, fired)
+        return _result("Rejected", "Strong document-like layout detected.", features, doc_score, aerial_score, indoor_score, fired)
 
     if doc_score >= 6 and aerial_score <= 4:
-        return _result("Rejected", "Strong document-like layout detected.", features, doc_score, aerial_score, fired)
+        return _result("Rejected", "Strong document-like layout detected.", features, doc_score, aerial_score, indoor_score, fired)
 
     screenshot_ui_with_land = features["top_dark_ratio"] > 0.35 and features["light_ratio"] > 0.12 and aerial_score >= 4
     if screenshot_ui_with_land:
-        return _result("Uncertain", "Screenshot-like browser UI detected around possible land imagery; manual continuation is available.", features, doc_score, aerial_score, fired)
+        return _result("Uncertain", "Screenshot-like browser UI detected around possible land imagery; manual continuation is available.", features, doc_score, aerial_score, indoor_score, fired)
 
     ground_level_horizon = (
         features["top_sky_ratio"] > 0.70
@@ -265,18 +310,24 @@ def validate_land_image(image: Image.Image) -> InputValidationResult:
         and aerial_score >= 4
     )
     if ground_level_horizon:
-        return _result("Uncertain", "Ground-level landscape cues detected; manual continuation is available.", features, doc_score, aerial_score, fired)
+        return _result("Uncertain", "Ground-level landscape cues detected; manual continuation is available.", features, doc_score, aerial_score, indoor_score, fired)
+
+    if indoor_score >= 4 and aerial_score <= 5:
+        return _result("Rejected", "Indoor or ground-level photo characteristics detected.", features, doc_score, aerial_score, indoor_score, fired)
+
+    if indoor_score >= 4 and aerial_score <= 7:
+        return _result("Uncertain", "Indoor or ground-level photo characteristics detected; manual continuation is available.", features, doc_score, aerial_score, indoor_score, fired)
 
     if aerial_score >= 6 and doc_score <= 5:
-        return _result("Suitable", "Multiple aerial/land characteristics detected.", features, doc_score, aerial_score, fired)
+        return _result("Suitable", "Multiple aerial/land characteristics detected.", features, doc_score, aerial_score, indoor_score, fired)
 
     if aerial_score >= 5 and aerial_score > doc_score:
-        return _result("Suitable", "Aerial/land evidence is stronger than document-like evidence.", features, doc_score, aerial_score, fired)
+        return _result("Suitable", "Aerial/land evidence is stronger than document-like evidence.", features, doc_score, aerial_score, indoor_score, fired)
 
     if doc_score >= 5 and aerial_score <= 4:
-        return _result("Rejected", "Strong document-like layout detected.", features, doc_score, aerial_score, fired)
+        return _result("Rejected", "Strong document-like layout detected.", features, doc_score, aerial_score, indoor_score, fired)
 
     if aerial_score < 3 and doc_score < 4:
-        return _result("Rejected", "Image contains insufficient aerial/land characteristics.", features, doc_score, aerial_score, fired)
+        return _result("Rejected", "Image contains insufficient aerial/land characteristics.", features, doc_score, aerial_score, indoor_score, fired)
 
-    return _result("Uncertain", "Input is ambiguous; manual continuation is available.", features, doc_score, aerial_score, fired)
+    return _result("Uncertain", "Input is ambiguous; manual continuation is available.", features, doc_score, aerial_score, indoor_score, fired)

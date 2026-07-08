@@ -12,6 +12,7 @@ GitHub: https://github.com/AalimBaba/Land-Usage-Monitoring-Tool
 - Reject obvious out-of-distribution uploads such as documents, certificates, screenshots, portraits, blank images, and simple graphics before segmentation.
 - Run real TensorFlow/Keras U-Net inference from `unet_model.h5`.
 - Display predicted segmentation mask, overlay, class distribution, and mean softmax confidence.
+- Collect metadata-only user feedback for rejected, uncertain, and completed predictions without storing raw uploaded images by default.
 - Gracefully handle invalid images and missing model files.
 - Keep training, evaluation, and inference preprocessing consistent.
 - Report honest metrics only from real evaluation runs.
@@ -126,6 +127,8 @@ streamlit run app.py
 ```
 
 Upload a PNG/JPEG image in the "Try the Model" area. The app resizes the image to `64 x 64`, runs the U-Net, and shows the predicted segmentation. Confidence is the model's mean softmax confidence, not a guarantee of real-world correctness.
+
+The feedback panel lets users report false rejections, false acceptances, or incorrect-looking land predictions. Feedback is stored as metadata-only JSONL at `feedback/feedback_log.jsonl` when the runtime filesystem allows it, and the current session log can be downloaded from the app.
 
 ## Deployment
 

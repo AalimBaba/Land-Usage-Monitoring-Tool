@@ -55,6 +55,21 @@ def portrait_image() -> Image.Image:
     return img
 
 
+def indoor_room_image(seed: int = 42) -> Image.Image:
+    rng = np.random.default_rng(seed)
+    arr = np.full((256, 256, 3), (184, 165, 140), dtype=np.uint8)
+    arr[:90, :] = (206, 190, 168)
+    arr[90:180, :135] = (176, 158, 132)
+    arr[90:180, 135:] = (130, 98, 76)
+    arr[180:, :] = (118, 92, 70)
+    arr[120:176, 150:235] = (84, 62, 48)
+    arr[132:168, 25:115] = (222, 222, 210)
+    arr[176:184, :] = (70, 58, 50)
+    arr[:, 132:138] = (92, 76, 64)
+    noise = rng.normal(0, 7, arr.shape)
+    return Image.fromarray(np.clip(arr.astype(np.int16) + noise, 0, 255).astype(np.uint8))
+
+
 def blank_image() -> Image.Image:
     return Image.new("RGB", (256, 256), (245, 245, 245))
 
@@ -201,6 +216,13 @@ def test_portrait_is_rejected():
     result = validate_land_image(portrait_image())
 
     assert result.image_relevance == "Rejected"
+
+
+def test_indoor_room_photo_is_not_suitable():
+    result = validate_land_image(indoor_room_image())
+
+    assert result.image_relevance in {"Rejected", "Uncertain"}
+    assert result.segmentation == "Not run"
 
 
 def test_blank_image_is_rejected():

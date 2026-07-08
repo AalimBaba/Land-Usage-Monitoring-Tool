@@ -7,6 +7,7 @@ import streamlit as st
 from PIL import Image, UnidentifiedImageError
 
 from land_usage.config import CLASS_NAMES, PALETTE, REPO_URL
+from land_usage.feedback import append_feedback, feedback_record, records_to_jsonl
 from land_usage.inference import ModelUnavailableError, load_model, predict_image
 from land_usage.validation import InputValidationResult, validate_land_image
 
@@ -222,6 +223,79 @@ def render_legend() -> None:
 
 css()
 metrics = load_metrics()
+if "feedback_records" not in st.session_state:
+    st.session_state.feedback_records = []
+
+
+def render_feedback_panel(
+    *,
+    image: Image.Image,
+    uploaded_filename: str | None,
+    validation_status: str,
+    segmentation_status: str,
+    dominant: str | None = None,
+    distribution: dict[str, float] | None = None,
+    confidence: float | None = None,
+    key: str,
+) -> None:
+    with st.container(border=True):
+        st.subheader("Feedback")
+        st.caption("Privacy note: uploaded images are not stored by default. Feedback saves metadata only.")
+        with st.form(f"feedback_form_{key}"):
+            category = st.radio(
+                "Was this result correct?",
+                [
+                    "Correct",
+                    "Wrong: valid land image was rejected",
+                    "Wrong: non-land image was accepted",
+                    "Wrong: land class prediction looks incorrect",
+                    "Other issue",
+                ],
+                key=f"feedback_category_{key}",
+            )
+            expected_type = st.selectbox(
+                "Expected input type",
+                [
+                    "Satellite / aerial land image",
+                    "Indoor photo",
+                    "Document / ID / certificate",
+                    "Screenshot",
+                    "Portrait / selfie",
+                    "Other",
+                ],
+                key=f"expected_type_{key}",
+            )
+            note = st.text_area("Describe the issue", key=f"feedback_note_{key}")
+            submitted = st.form_submit_button("Submit feedback")
+
+        if submitted:
+            record = feedback_record(
+                uploaded_filename=uploaded_filename,
+                image=image,
+                validation_status=validation_status,
+                segmentation_status=segmentation_status,
+                dominant_class=dominant,
+                pixel_distribution=distribution,
+                mean_softmax_confidence=confidence,
+                feedback_category=category,
+                user_note=note,
+                expected_input_type=expected_type,
+            )
+            st.session_state.feedback_records.append(record)
+            saved = append_feedback(record)
+            if saved:
+                st.success("Feedback saved to feedback/feedback_log.jsonl.")
+            else:
+                st.warning("Feedback kept in this session. Streamlit Cloud storage may be temporary or unavailable.")
+
+        if st.session_state.feedback_records:
+            st.download_button(
+                "Download feedback log",
+                data=records_to_jsonl(st.session_state.feedback_records),
+                file_name="feedback_log.jsonl",
+                mime="application/jsonl",
+                key=f"download_feedback_{key}",
+            )
 
 st.markdown(
     """
@@ -271,6 +345,13 @@ with st.container(border=True):
                     "This image does not appear to be satellite or aerial land imagery. "
                     "Please upload a suitable land or satellite image."
                 )
+                render_feedback_panel(
+                    image=image,
+                    uploaded_filename=upload.name,
+                    validation_status=validation.image_relevance,
+                    segmentation_status="Not run",
+                    key="rejected",
+                )
                 should_run_segmentation = False
             elif validation.is_uncertain:
                 render_validation_status(validation)
@@ -278,6 +359,14 @@ with st.container(border=True):
                     "This image may not be satellite or aerial land imagery. Run segmentation only if the upload is actually a land, aerial, or remote-sensing image."
                 )
                 should_run_segmentation = st.checkbox("Run segmentation anyway for this uncertain image")
+                if not should_run_segmentation:
+                    render_feedback_panel(
+                        image=image,
+                        uploaded_filename=upload.name,
+                        validation_status=validation.image_relevance,
+                        segmentation_status="Not run",
+                        key="uncertain",
+                    )
 
             if not should_run_segmentation:
                 st.stop()
@@ -299,6 +388,16 @@ with st.container(border=True):
             render_distribution(result.class_distribution, result.mean_confidence)
             st.markdown("**Legend**")
             render_legend()
+            render_feedback_panel(
+                image=image,
+                uploaded_filename=upload.name,
+                validation_status=validation.image_relevance,
+                segmentation_status="Run",
+                dominant=dominant_name,
+                distribution=result.class_distribution,
+                confidence=result.mean_confidence,
+                key="result",
+            )
         except UnidentifiedImageError:
             st.error("That file is not a valid image. Please upload a PNG or JPEG image.")
         except ModelUnavailableError as exc:
@@ -344,7 +443,8 @@ with st.container(border=True):
     if not metrics:
         st.markdown(
             '<div class="note"><strong>Held-out evaluation dataset not included in repository.</strong><br>'
-            'The metrics pipeline is implemented, but this live demo does not fabricate scores. '
+            'Current deployed model accuracy cannot be verified without a labelled held-out satellite test dataset. '
+            'The evaluation pipeline is implemented, but this live demo does not fabricate scores. '
             'Run <code>python evaluate_model.py --data-dir "path/to/SEN-2 LULC" --model unet_model.h5</code> '
             'with labelled image/mask pairs to generate <code>metrics.json</code>. Supported metrics include '
             'Pixel Accuracy, Mean IoU, Mean Dice, Macro F1, per-class IoU, precision, recall, F1-score, and a confusion matrix.</div>',
