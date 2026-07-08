@@ -198,9 +198,9 @@ with st.container(border=True):
                 result = predict_image(model, image)
 
             left, mid, right = st.columns(3)
-            left.image(image, caption="Uploaded image", use_container_width=True)
-            mid.image(result.mask_image, caption="Predicted land-use map", use_container_width=True)
-            right.image(result.overlay_image, caption="Prediction overlay", use_container_width=True)
+            left.image(image, caption="Uploaded image", use_column_width=True)
+            mid.image(result.mask_image, caption="Predicted land-use map", use_column_width=True)
+            right.image(result.overlay_image, caption="Prediction overlay", use_column_width=True)
             render_distribution(result.class_distribution, result.mean_confidence)
             st.markdown("**Legend**")
             render_legend()
