@@ -1,0 +1,145 @@
+{
+  "summary": {
+    "total_cases": 13,
+    "passed": 13,
+    "failed": 0,
+    "validation_accuracy": 1.0,
+    "false_accepts": 0,
+    "false_rejects": 0,
+    "note": "Validation accuracy is input-relevance gate accuracy, not U-Net segmentation accuracy."
+  },
+  "false_accepts": [],
+  "false_rejects": [],
+  "cases": [
+    {
+      "name": "aerial_city",
+      "category": "valid",
+      "expected": "Suitable",
+      "actual": "Suitable",
+      "segmentation": "Run",
+      "passed": true,
+      "reason": "Multiple aerial/land characteristics detected.",
+      "source": "built-in synthetic"
+    },
+    {
+      "name": "satellite_urban",
+      "category": "valid",
+      "expected": "Suitable",
+      "actual": "Suitable",
+      "segmentation": "Run",
+      "passed": true,
+      "reason": "Multiple aerial/land characteristics detected.",
+      "source": "built-in synthetic"
+    },
+    {
+      "name": "farmland_rural",
+      "category": "valid",
+      "expected": "Suitable",
+      "actual": "Suitable",
+      "segmentation": "Run",
+      "passed": true,
+      "reason": "Multiple aerial/land characteristics detected.",
+      "source": "built-in synthetic"
+    },
+    {
+      "name": "forest_vegetation",
+      "category": "valid",
+      "expected": "Suitable",
+      "actual": "Suitable",
+      "segmentation": "Run",
+      "passed": true,
+      "reason": "Multiple aerial/land characteristics detected.",
+      "source": "built-in synthetic"
+    },
+    {
+      "name": "water_coastline",
+      "category": "valid",
+      "expected": "Suitable",
+      "actual": "Suitable",
+      "segmentation": "Run",
+      "passed": true,
+      "reason": "Multiple aerial/land characteristics detected.",
+      "source": "built-in synthetic"
+    },
+    {
+      "name": "mixed_land_cover",
+      "category": "valid",
+      "expected": "Suitable",
+      "actual": "Suitable",
+      "segmentation": "Run",
+      "passed": true,
+      "reason": "Multiple aerial/land characteristics detected.",
+      "source": "built-in synthetic"
+    },
+    {
+      "name": "id_card",
+      "category": "invalid",
+      "expected": "Not Suitable",
+      "actual": "Rejected",
+      "segmentation": "Not run",
+      "passed": true,
+      "reason": "This appears to be an ID card or document, not satellite or aerial land imagery.",
+      "source": "built-in synthetic"
+    },
+    {
+      "name": "photographed_id_card",
+      "category": "invalid",
+      "expected": "Not Suitable",
+      "actual": "Rejected",
+      "segmentation": "Not run",
+      "passed": true,
+      "reason": "This appears to be an ID card or document, not satellite or aerial land imagery.",
+      "source": "built-in synthetic"
+    },
+    {
+      "name": "certificate",
+      "category": "invalid",
+      "expected": "Not Suitable",
+      "actual": "Rejected",
+      "segmentation": "Not run",
+      "passed": true,
+      "reason": "Image is blank or nearly blank.",
+      "source": "built-in synthetic"
+    },
+    {
+      "name": "document_screenshot",
+      "category": "invalid",
+      "expected": "Not Suitable",
+      "actual": "Rejected",
+      "segmentation": "Not run",
+      "passed": true,
+      "reason": "This appears to be an ID card or document, not satellite or aerial land imagery.",
+      "source": "built-in synthetic"
+    },
+    {
+      "name": "indoor_room",
+      "category": "invalid",
+      "expected": "Not Suitable",
+      "actual": "Rejected",
+      "segmentation": "Not run",
+      "passed": true,
+      "reason": "This appears to be a ground-level indoor image, not satellite or aerial land imagery.",
+      "source": "built-in synthetic"
+    },
+    {
+      "name": "portrait_selfie",
+      "category": "invalid",
+      "expected": "Not Suitable",
+      "actual": "Rejected",
+      "segmentation": "Not run",
+      "passed": true,
+      "reason": "Person or portrait-like content detected.",
+      "source": "built-in synthetic"
+    },
+    {
+      "name": "blank_simple_graphic",
+      "category": "invalid",
+      "expected": "Not Suitable",
+      "actual": "Rejected",
+      "segmentation": "Not run",
+      "passed": true,
+      "reason": "Image is blank or nearly blank.",
+      "source": "built-in synthetic"
+    }
+  ]
+}

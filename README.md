@@ -13,6 +13,8 @@ GitHub: https://github.com/AalimBaba/Land-Usage-Monitoring-Tool
 - Run real TensorFlow/Keras U-Net inference from `unet_model.h5`.
 - Display predicted segmentation mask, overlay, class distribution, and mean softmax confidence.
 - Collect metadata-only user feedback for rejected, uncertain, and completed predictions, with a session download option and no raw image storage by default.
+- Switch between clean Light and charcoal Dark themes in the Streamlit sidebar.
+- Run `validation_benchmark.py` to measure input-validation behavior separately from model accuracy.
 - Gracefully handle invalid images and missing model files.
 - Keep training, evaluation, and inference preprocessing consistent.
 - Report honest metrics only from real evaluation runs.
@@ -117,6 +119,40 @@ This writes `metrics.json` with:
 
 Current metrics: **not included in this repository because the dataset is not committed.** Do not add CV metrics until `metrics.json` is generated from a real test split.
 
+## Validation Benchmark
+
+Run the input-validation benchmark:
+
+```bash
+python validation_benchmark.py
+```
+
+The benchmark runs the real validator against built-in synthetic cases for:
+
+- valid aerial/city imagery;
+- satellite/urban imagery;
+- farmland/rural imagery;
+- forest/vegetation imagery;
+- water/coastline imagery;
+- mixed land-cover imagery;
+- ID cards;
+- certificates/documents;
+- indoor rooms;
+- portraits;
+- screenshots;
+- blank/simple graphics.
+
+It prints expected vs actual results, reports false accepts and false rejects, and writes `validation_report.json`.
+
+You can add local non-committed images here:
+
+```text
+tests/validation_samples/valid/
+tests/validation_samples/invalid/
+```
+
+Validation benchmark accuracy is **input relevance accuracy only**. It does not measure U-Net segmentation quality.
+
 ## Inference
 
 Run the web app locally:
@@ -129,6 +165,13 @@ streamlit run app.py
 Upload a PNG/JPEG image in the "Try the Model" area. The app resizes the image to `64 x 64`, runs the U-Net, and shows the predicted segmentation. Confidence is the model's mean softmax confidence, not a guarantee of real-world correctness.
 
 The feedback panel lets users report false rejections, false acceptances, or incorrect-looking land predictions. On Streamlit Community Cloud, app-local files are temporary and should not be treated as durable storage. The app therefore keeps feedback in the current Streamlit session and exposes a **Download feedback log** button after feedback is submitted. It also attempts a best-effort metadata-only JSONL write to `feedback/feedback_log.jsonl` when the runtime filesystem allows it, but users should download the JSONL log if they need to keep it. Uploaded images are not stored by default.
+
+## App Sections and Theme
+
+The live app includes recruiter-friendly sections for the problem statement, solution overview, key features, architecture/pipeline, demo workflow, accuracy and evaluation, limitations, improvement roadmap, tech stack, About Me, and project links. The sidebar includes a theme toggle:
+
+- **Light:** white/soft-grey professional interface with dark text.
+- **Dark:** black/charcoal interface with high-contrast cards, borders, links, upload areas, and progress bars.
 
 ## Deployment
 
@@ -172,6 +215,16 @@ Python, Streamlit, TensorFlow/Keras, U-Net, NumPy, Pillow, Scikit-learn, Matplot
 ## Limitations and Ethical Note
 
 The bundled demo model is small and operates at low `64 x 64` resolution. Predictions depend on dataset quality and may confuse similar land classes, miss small structures, or produce coarse boundaries. The input relevance gate rejects many obvious non-land images, but heuristic validation can still false-reject valid imagery or miss unusual irrelevant images. The app is not suitable for official land surveys, legal decisions, environmental policy, agricultural planning, or safety-critical monitoring. Verified accuracy requires a labelled held-out evaluation dataset. Larger datasets, higher-resolution training, and stronger architectures such as DeepLabV3+, U-Net++, or SegFormer can improve performance.
+
+## Improvement Roadmap
+
+- Collect a labelled Sentinel-2/LULC validation and test dataset.
+- Retrain at a larger resolution than `64 x 64`.
+- Evaluate stronger architectures such as DeepLabV3+, U-Net++, or SegFormer.
+- Improve class balancing and augmentation for minority land classes.
+- Evaluate on a held-out labelled test set.
+- Publish `metrics.json` with Pixel Accuracy, Mean IoU, Mean Dice, Macro F1, per-class IoU, precision, recall, F1-score, and confusion matrix.
+- Only claim high accuracy, including 95%+, after it is measured on real labelled satellite image/mask pairs.
 
 ## Screenshots
 

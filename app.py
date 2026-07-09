@@ -35,7 +35,7 @@ def load_metrics() -> dict:
         return {}
 
 
-def css() -> None:
+def css(theme: str) -> None:
     st.markdown(
         """
         <style>
@@ -176,6 +176,80 @@ def css() -> None:
         """,
         unsafe_allow_html=True,
     )
+    if theme == "Dark":
+        override = """
+        :root {
+          --ink: #f5f7f7;
+          --muted: #b7c0c0;
+          --line: #2b3333;
+          --field: #151a1a;
+          --panel: rgba(12,14,14,.96);
+          --panel-strong: rgba(20,23,23,.98);
+          --page-soft: rgba(5,7,7,.94);
+          --page-base: rgba(0,0,0,.98);
+          --accent: #2fb47c;
+          --accent-2: #8ab4ff;
+          --warn: #e5a34f;
+          --shadow: 0 18px 58px rgba(0,0,0,.46);
+          --upload: #121817;
+        }
+        .stApp {
+          background:
+            linear-gradient(180deg, rgba(0,0,0,.92), rgba(8,10,10,.98) 48%),
+            url("https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=1800&q=80");
+          background-size: cover;
+          background-attachment: fixed;
+        }
+        .lead, .legend-item, .pill, h1, h2, h3, p, label, span { color: var(--ink); }
+        .note { background: #241b0f; color: #ffdca8; }
+        """
+    else:
+        override = """
+        :root {
+          --ink: #111827;
+          --muted: #52606d;
+          --line: #d8dee6;
+          --field: #f7f9fb;
+          --panel: rgba(255,255,255,.96);
+          --panel-strong: rgba(255,255,255,.99);
+          --page-soft: rgba(246,248,250,.94);
+          --page-base: rgba(255,255,255,.98);
+          --accent: #176b4f;
+          --accent-2: #245ca8;
+          --warn: #a45f19;
+          --shadow: 0 16px 46px rgba(17,24,39,.10);
+          --upload: #f2f6f5;
+        }
+        .stApp {
+          background:
+            linear-gradient(180deg, rgba(248,250,252,.94), rgba(255,255,255,.98) 48%),
+            url("https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=1800&q=80");
+          background-size: cover;
+          background-attachment: fixed;
+        }
+        .lead, .legend-item, .pill { color: #1f2937; }
+        """
+    st.markdown(
+        f"""
+        <style>
+        {override}
+        .stButton > button, .stDownloadButton > button {{
+          border-radius: 8px;
+          border: 1px solid var(--line);
+          background: var(--panel-strong);
+          color: var(--ink);
+        }}
+        .stProgress div div div div {{
+          background-color: var(--accent);
+        }}
+        [data-testid="stSidebar"] {{
+          background: var(--panel-strong);
+          border-right: 1px solid var(--line);
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def metric_value(metrics: dict, key: str) -> str:
@@ -222,7 +296,8 @@ def render_legend() -> None:
     st.markdown('<div class="legend">' + "".join(rows) + "</div>", unsafe_allow_html=True)
 
 
-css()
+theme = st.sidebar.radio("Theme", ["Light", "Dark"], horizontal=True)
+css(theme)
 metrics = load_metrics()
 if "feedback_records" not in st.session_state:
     st.session_state.feedback_records = []
@@ -412,30 +487,60 @@ with st.container(border=True):
         except Exception as exc:
             st.error(f"Prediction failed gracefully: {exc}")
 
-col_a, col_b = st.columns(2)
-with col_a:
+overview_cols = st.columns(3)
+with overview_cols[0]:
     with st.container(border=True):
-        st.header("How It Works")
+        st.header("Problem Statement")
         st.write(
-            "This is a semantic segmentation task. Each pixel is assigned one land-use class. "
-            "Training pairs RGB `.png` images with single-channel `.tif` masks using matching file names."
+            "Land-use monitoring needs quick interpretation of satellite or aerial imagery, but raw imagery is hard to scan manually. "
+            "This demo shows how semantic segmentation can convert an uploaded land image into a visual land-cover mask."
         )
+with overview_cols[1]:
+    with st.container(border=True):
+        st.header("Solution Overview")
         st.write(
-            "The improved pipeline keeps image/mask resizing aligned, remaps mask labels consistently, "
-            "uses train/validation/test splits, and evaluates segmentation quality beyond pixel accuracy."
+            "The app validates whether an upload looks like land or aerial imagery, runs a compact TensorFlow/Keras U-Net when suitable, "
+            "and displays the predicted mask, overlay, pixel distribution, and feedback controls."
+        )
+with overview_cols[2]:
+    with st.container(border=True):
+        st.header("Key Features")
+        st.write(
+            "Upload validation, real model inference, segmentation overlay, predicted pixel distribution, metadata-only feedback, "
+            "downloadable feedback logs, and honest evaluation messaging are included."
         )
 
-with col_b:
+pipeline_cols = st.columns(2)
+with pipeline_cols[0]:
     with st.container(border=True):
-        st.header("Model Improvements")
+        st.header("Architecture / Pipeline")
         st.write(
-            "The repository now includes augmentation, Dice + focal cross-entropy loss, early stopping, "
-            "best-model checkpointing, learning-rate scheduling, and reusable metrics. "
-            "A transfer-learning U-Net path can be added later, but the default remains simple to run."
+            "Upload -> file decoder -> input relevance validator -> optional U-Net inference -> mask colorization -> overlay rendering -> "
+            "class distribution -> feedback capture."
+        )
+        st.write(
+            "Training utilities support aligned image/mask resizing, label remapping, train/validation/test splits, augmentation, "
+            "checkpointing, and segmentation metrics."
+        )
+with pipeline_cols[1]:
+    with st.container(border=True):
+        st.header("Demo Workflow")
+        st.write(
+            "Use a satellite crop, aerial city image, farmland scene, coastline, vegetation image, or mixed land-cover image. "
+            "Documents, ID cards, portraits, indoor rooms, blank images, and screenshots are blocked or marked uncertain before segmentation."
         )
 
 with st.container(border=True):
-    st.header("Evaluation Metrics")
+    st.header("Accuracy & Evaluation")
+    st.write(
+        "Input-validation accuracy can be benchmarked with `python validation_benchmark.py`. "
+        "That benchmark measures the upload gate only; it is not segmentation/model accuracy."
+    )
+    st.write(
+        "Segmentation accuracy requires labelled satellite image and mask pairs. Supported model metrics include Pixel Accuracy, "
+        "Mean IoU, Mean Dice, Macro F1, per-class IoU, precision, recall, F1-score, and a confusion matrix. "
+        "This app does not fabricate accuracy values."
+    )
     st.markdown(
         f"""
         <div class="metric-grid">
@@ -450,44 +555,57 @@ with st.container(border=True):
     if not metrics:
         st.markdown(
             '<div class="note"><strong>Held-out evaluation dataset not included in repository.</strong><br>'
-            'Current deployed model accuracy cannot be verified without a labelled held-out satellite test dataset. '
-            'The evaluation pipeline is implemented, but this live demo does not fabricate scores. '
+            'Current deployed model accuracy cannot be verified without labelled satellite images and matching masks from a held-out test dataset. '
+            'A 95%+ accuracy claim cannot be made honestly until it is measured on that dataset. '
             'Run <code>python evaluate_model.py --data-dir "path/to/SEN-2 LULC" --model unet_model.h5</code> '
             'with labelled image/mask pairs to generate <code>metrics.json</code>. Supported metrics include '
             'Pixel Accuracy, Mean IoU, Mean Dice, Macro F1, per-class IoU, precision, recall, F1-score, and a confusion matrix.</div>',
             unsafe_allow_html=True,
         )
 
-cols = st.columns(3)
-with cols[0]:
-    with st.container(border=True):
-        st.header("Tech Stack")
-        st.write("Python, Streamlit, TensorFlow/Keras, U-Net, NumPy, Pillow, Scikit-learn, Matplotlib, Pytest, Streamlit Cloud.")
-with cols[1]:
+detail_cols = st.columns(3)
+with detail_cols[0]:
     with st.container(border=True):
         st.header("Limitations")
         st.write(
-            "The bundled demo model is trained at low 64 x 64 resolution, so predictions depend heavily on dataset quality "
-            "and may miss fine boundaries or confuse visually similar land classes. It is not suitable for official land "
-            "surveys or policy decisions. Verified accuracy requires a labelled held-out evaluation dataset; larger datasets "
-            "and stronger architectures can improve performance."
+            "The bundled model is a compact demo trained at low 64 x 64 resolution. It can confuse visually similar classes, miss fine boundaries, "
+            "and should not be used for official surveys, policy decisions, or safety-critical monitoring."
         )
-with cols[2]:
+with detail_cols[1]:
     with st.container(border=True):
-        st.header("GitHub Repository")
-        st.markdown(f'<div class="footer-link"><a href="{REPO_URL}">View source code</a></div>', unsafe_allow_html=True)
-        st.write("Source code, training scripts, evaluation pipeline, tests, and deployment configuration are included.")
+        st.header("Improvement Roadmap")
+        st.write(
+            "Collect a labelled Sentinel-2/LULC validation dataset, retrain above 64 x 64 resolution, test DeepLabV3+, U-Net++, or SegFormer, "
+            "add class balancing and stronger augmentation, evaluate on a held-out test set, publish `metrics.json`, and only then claim high accuracy."
+        )
+with detail_cols[2]:
+    with st.container(border=True):
+        st.header("Tech Stack")
+        st.write("Python, Streamlit, TensorFlow/Keras, U-Net, NumPy, Pillow, Scikit-learn, Matplotlib, Pytest, Streamlit Cloud.")
 
 with st.container(border=True):
     st.header("About Me")
     st.write("**Name:** Muhammad Aalim Baba")
-    st.write("**Role:** Computer Science Engineering student / AI & Full-Stack developer")
+    st.write("**Role:** Computer Science Engineering student | AI/ML & Full-Stack Developer")
     st.markdown(
         """
         <div class="legend">
           <div class="footer-link"><strong>GitHub:</strong> <a href="https://github.com/AalimBaba">github.com/AalimBaba</a></div>
           <div class="footer-link"><strong>LinkedIn:</strong> <a href="https://www.linkedin.com/in/aalimbaba-/">linkedin.com/in/aalimbaba-</a></div>
-          <div><strong>Portfolio:</strong> Coming soon</div>
+          <div class="footer-link"><strong>Portfolio:</strong> <a href="https://aalimbaba.github.io/Portfolio/">aalimbaba.github.io/Portfolio</a></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+with st.container(border=True):
+    st.header("Links")
+    st.markdown(
+        f"""
+        <div class="legend">
+          <div class="footer-link"><strong>Live Demo:</strong> <a href="https://land-usage-monitoring-tool.streamlit.app/">land-usage-monitoring-tool.streamlit.app</a></div>
+          <div class="footer-link"><strong>GitHub Repository:</strong> <a href="{REPO_URL}">AalimBaba/Land-Usage-Monitoring-Tool</a></div>
+          <div class="footer-link"><strong>Validation Benchmark:</strong> run <code>python validation_benchmark.py</code></div>
         </div>
         """,
         unsafe_allow_html=True,
