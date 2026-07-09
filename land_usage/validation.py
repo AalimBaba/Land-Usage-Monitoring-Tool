@@ -74,6 +74,7 @@ def _extract_features(image: Image.Image) -> dict[str, float | int]:
     gray = (0.299 * r + 0.587 * g + 0.114 * b).astype(np.uint8)
     top_band = slice(0, 38)
     top_third = slice(0, 86)
+    bottom_third = slice(170, 256)
     top_dark_ratio = float((gray[top_band, :] < 75).mean())
     top_sky_ratio = float(((b[top_third, :] > 120) & (b[top_third, :] > r[top_third, :] * 1.12) & (b[top_third, :] > g[top_third, :] * 1.03)).mean())
     warm_indoor = ((r > 110) & (g > 85) & (b < 150) & (r >= b * 1.15) & (saturation < 0.55))
@@ -90,6 +91,8 @@ def _extract_features(image: Image.Image) -> dict[str, float | int]:
     horizontal_line_density = float((row_edge > 0.20).mean())
     vertical_line_density = float((col_edge > 0.20).mean())
     right_vertical_stripes = float((col_edge[int(col_edge.size * 0.65) :] > 0.18).mean())
+    row_partition_strength = float(row_edge.max())
+    col_partition_strength = float(col_edge.max())
 
     border = np.zeros_like(edges, dtype=bool)
     band = 12
@@ -115,6 +118,17 @@ def _extract_features(image: Image.Image) -> dict[str, float | int]:
 
     tile_texture_mean, distributed_detail_ratio, spatial_variance, smooth_tile_ratio = _tile_stats(gray)
     unique_rounded_colors = int(np.unique((rgb // 32).reshape(-1, 3), axis=0).shape[0])
+    top_region_std = float(gray[top_third, :].std())
+    middle_region_std = float(gray[86:170, :].std())
+    bottom_region_std = float(gray[bottom_third, :].std())
+    smooth_region_count = int(sum(value < 18 for value in (top_region_std, middle_region_std, bottom_region_std)))
+    band_mean_gap = float(
+        max(
+            abs(float(gray[top_third, :].mean()) - float(gray[86:170, :].mean())),
+            abs(float(gray[bottom_third, :].mean()) - float(gray[86:170, :].mean())),
+            abs(float(gray[top_third, :].mean()) - float(gray[bottom_third, :].mean())),
+        )
+    )
 
     return {
         "width": int(width),
@@ -126,6 +140,8 @@ def _extract_features(image: Image.Image) -> dict[str, float | int]:
         "horizontal_line_density": horizontal_line_density,
         "vertical_line_density": vertical_line_density,
         "right_vertical_stripe_ratio": right_vertical_stripes,
+        "row_partition_strength": row_partition_strength,
+        "col_partition_strength": col_partition_strength,
         "rectangular_boundary_score": float(rectangular_boundary_score),
         "text_density_estimate": float((text_row_ratio + text_col_ratio) / 2),
         "text_row_ratio": text_row_ratio,
@@ -141,6 +157,11 @@ def _extract_features(image: Image.Image) -> dict[str, float | int]:
         "texture_mean": tile_texture_mean,
         "distributed_detail_ratio": distributed_detail_ratio,
         "smooth_tile_ratio": smooth_tile_ratio,
+        "top_region_std": top_region_std,
+        "middle_region_std": middle_region_std,
+        "bottom_region_std": bottom_region_std,
+        "smooth_region_count": smooth_region_count,
+        "band_mean_gap": band_mean_gap,
         "spatial_variance": spatial_variance,
         "natural_ratio": natural_ratio,
         "land_color_mix": int(land_color_mix),
@@ -159,6 +180,25 @@ def _score_indoor(features: dict[str, float | int]) -> tuple[int, list[str]]:
     if features["top_sky_ratio"] > 0.70 and features["edge_density"] < 0.025:
         score += 2
         fired.append("ground-level horizon/sky band")
+    if (
+        features["smooth_region_count"] >= 2
+        and features["band_mean_gap"] > 25
+        and features["land_color_mix"] <= 3
+        and (features["neutral_surface_ratio"] > 0.12 or features["smooth_tile_ratio"] > 0.20)
+    ):
+        score += 2
+        fired.append("ceiling/wall/floor-like smooth bands")
+    if features["smooth_tile_ratio"] > 0.25 and features["spatial_variance"] > 24 and features["distributed_detail_ratio"] < 0.55:
+        score += 2
+        fired.append("large smooth perspective surfaces")
+    if (
+        features["row_partition_strength"] > 0.28
+        and features["col_partition_strength"] > 0.22
+        and features["colour_diversity"] < 150
+        and features["neutral_surface_ratio"] > 0.12
+    ):
+        score += 1
+        fired.append("room-like wall/window/furniture partitions")
     if features["warm_indoor_ratio"] > 0.35 and features["distributed_detail_ratio"] < 0.45:
         score += 2
         fired.append("large warm indoor/object-like surfaces")
@@ -171,7 +211,12 @@ def _score_indoor(features: dict[str, float | int]) -> tuple[int, list[str]]:
     if features["warm_indoor_ratio"] > 0.25 and features["neutral_surface_ratio"] > 0.18 and features["line_density"] < 0.05:
         score += 2
         fired.append("warm room-like surfaces with low top-down structure")
-    if features["skin_ratio"] > 0.24 and features["land_color_mix"] <= 3 and features["edge_density"] < 0.05:
+    if (
+        features["skin_ratio"] > 0.24
+        and features["land_color_mix"] <= 3
+        and features["edge_density"] < 0.05
+        and (features["neutral_surface_ratio"] > 0.12 or features["smooth_tile_ratio"] > 0.20)
+    ):
         score += 2
         fired.append("ground-level person/interior colour composition")
     if features["land_color_mix"] <= 2 and features["colour_diversity"] < 130:
@@ -354,6 +399,36 @@ def validate_land_image(image: Image.Image) -> InputValidationResult:
     if features["central_skin_ratio"] > 0.38 or (features["skin_ratio"] > 0.30 and aerial_score < 4):
         return _result("Rejected", "Person or portrait-like content detected.", features, doc_score, aerial_score, indoor_score, fired)
 
+    ground_level_horizon = (
+        features["top_sky_ratio"] > 0.70
+        and features["edge_density"] < 0.025
+        and features["texture_mean"] < 13
+        and aerial_score >= 4
+    )
+    if ground_level_horizon:
+        return _result("Uncertain", "The image is ambiguous. Segmentation is disabled by default, but you may run it manually for demonstration.", features, doc_score, aerial_score, indoor_score, fired)
+
+    if indoor_score >= 3:
+        if aerial_score <= 6 or features["distributed_detail_ratio"] < 0.60 or features["colour_diversity"] < 140:
+            return _result(
+                "Rejected",
+                "This appears to be a ground-level indoor image, not satellite or aerial land imagery.",
+                features,
+                doc_score,
+                aerial_score,
+                indoor_score,
+                fired,
+            )
+        return _result(
+            "Uncertain",
+            "The image is ambiguous. Segmentation is disabled by default, but you may run it manually for demonstration.",
+            features,
+            doc_score,
+            aerial_score,
+            indoor_score,
+            fired,
+        )
+
     hard_document_veto = (
         doc_score >= 7
         and (
@@ -406,25 +481,16 @@ def validate_land_image(image: Image.Image) -> InputValidationResult:
     if screenshot_ui_with_land:
         return _result("Uncertain", "The image is ambiguous. Segmentation is disabled by default, but you may run it manually for demonstration.", features, doc_score, aerial_score, indoor_score, fired)
 
-    ground_level_horizon = (
-        features["top_sky_ratio"] > 0.70
-        and features["edge_density"] < 0.025
-        and features["texture_mean"] < 13
-        and aerial_score >= 4
-    )
-    if ground_level_horizon:
-        return _result("Uncertain", "The image is ambiguous. Segmentation is disabled by default, but you may run it manually for demonstration.", features, doc_score, aerial_score, indoor_score, fired)
-
     if indoor_score >= 4 and aerial_score <= 5:
         return _result("Rejected", "This appears to be a ground-level indoor image, not satellite or aerial land imagery.", features, doc_score, aerial_score, indoor_score, fired)
 
     if indoor_score >= 4 and aerial_score <= 7:
         return _result("Uncertain", "The image is ambiguous. Segmentation is disabled by default, but you may run it manually for demonstration.", features, doc_score, aerial_score, indoor_score, fired)
 
-    if aerial_score >= 6 and doc_score <= 5:
+    if aerial_score >= 6 and doc_score <= 5 and indoor_score <= 2 and aerial_score >= doc_score + 2 and aerial_score >= indoor_score + 4:
         return _result("Suitable", "Multiple aerial/land characteristics detected.", features, doc_score, aerial_score, indoor_score, fired)
 
-    if aerial_score >= 5 and aerial_score > doc_score:
+    if aerial_score >= 5 and aerial_score > doc_score + 1 and indoor_score <= 1:
         return _result("Suitable", "Aerial/land evidence is stronger than document-like evidence.", features, doc_score, aerial_score, indoor_score, fired)
 
     if doc_score >= 5 and aerial_score <= 4:

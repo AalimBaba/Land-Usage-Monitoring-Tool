@@ -36,35 +36,57 @@ def load_metrics() -> dict:
 
 
 def css(theme: str) -> None:
-    st.markdown(
+    if theme == "Dark":
+        theme_vars = """
+          --ink: #f4f7f7;
+          --muted: #a8b3b3;
+          --line: #2b3336;
+          --field: #15191b;
+          --panel: #0d1011;
+          --panel-strong: #171b1d;
+          --page-soft: #090b0c;
+          --page-base: #000000;
+          --accent: #4f9cff;
+          --accent-2: #7dd3fc;
+          --warn: #f2b35d;
+          --shadow: 0 18px 58px rgba(0,0,0,.48);
+          --upload: #121719;
+          --success-bg: #10261c;
+          --error-bg: #331719;
+          --info-bg: #111f2d;
         """
+    else:
+        theme_vars = """
+          --ink: #111827;
+          --muted: #52606d;
+          --line: #d8dee6;
+          --field: #f7f9fb;
+          --panel: #ffffff;
+          --panel-strong: #f8fafc;
+          --page-soft: #f5f7fa;
+          --page-base: #ffffff;
+          --accent: #2563eb;
+          --accent-2: #0f766e;
+          --warn: #a45f19;
+          --shadow: 0 16px 46px rgba(17,24,39,.10);
+          --upload: #f2f6f8;
+          --success-bg: #edfdf4;
+          --error-bg: #fff1f2;
+          --info-bg: #eff6ff;
+        """
+    st.markdown(
+        f"""
         <style>
         :root {
-          --ink: #10211f;
-          --muted: #516461;
-          --line: #d9e1dc;
-          --field: #f4f8f6;
-          --panel: rgba(255,255,255,.93);
-          --panel-strong: rgba(255,255,255,.98);
-          --page-soft: rgba(238,246,242,.92);
-          --page-base: rgba(255,255,255,.96);
-          --accent: #1f7a5c;
-          --accent-2: #295a8d;
-          --warn: #a45f19;
-          --shadow: 0 18px 50px rgba(28,52,46,.10);
-          --upload: #edf6f1;
+        {theme_vars}
         }
-        .stApp {
+        html, body, .stApp, [data-testid="stAppViewContainer"] {
           color: var(--ink);
-          background:
-            linear-gradient(180deg, var(--page-soft), var(--page-base) 42%),
-            url("https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=1800&q=80");
-          background-size: cover;
-          background-attachment: fixed;
+          background: linear-gradient(180deg, var(--page-soft), var(--page-base) 46%) !important;
         }
-        [data-testid="stHeader"] { background: color-mix(in srgb, var(--panel) 76%, transparent); backdrop-filter: blur(14px); }
+        [data-testid="stHeader"] { background: color-mix(in srgb, var(--panel) 84%, transparent) !important; backdrop-filter: blur(14px); }
         .block-container {
-          padding-top: 2.4rem;
+          padding-top: 1.4rem;
           padding-left: clamp(1rem, 3vw, 3.5rem);
           padding-right: clamp(1rem, 3vw, 3.5rem);
           max-width: 1540px;
@@ -76,6 +98,14 @@ def css(theme: str) -> None:
           justify-content: center;
           padding: 3rem 0 2rem;
         }
+        .theme-bar {
+          background: var(--panel);
+          border: 1px solid var(--line);
+          box-shadow: var(--shadow);
+          border-radius: 8px;
+          padding: .85rem 1rem;
+          margin-bottom: 1rem;
+        }
         h1 {
           font-size: clamp(2.5rem, 7vw, 6rem);
           line-height: .95;
@@ -85,17 +115,17 @@ def css(theme: str) -> None:
         }
         .lead {
           max-width: 880px;
-          color: #263936;
+          color: var(--muted);
           font-size: clamp(1rem, 2vw, 1.25rem);
           line-height: 1.7;
         }
         .pill-row { display: flex; flex-wrap: wrap; gap: .65rem; margin-top: 1.3rem; }
         .pill {
           border: 1px solid rgba(16,33,31,.16);
-          background: color-mix(in srgb, var(--panel-strong) 82%, transparent);
+          background: var(--panel-strong);
           border-radius: 999px;
           padding: .55rem .78rem;
-          color: #203532;
+          color: var(--ink);
           font-weight: 700;
           font-size: .86rem;
         }
@@ -117,24 +147,24 @@ def css(theme: str) -> None:
           grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
           gap: .45rem .8rem;
         }
-        .legend-item { display: flex; align-items: center; gap: .5rem; font-size: .9rem; color: #344844; }
+        .legend-item { display: flex; align-items: center; gap: .5rem; font-size: .9rem; color: var(--ink); }
         .swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,.12); }
         .note {
           border-left: 4px solid var(--warn);
-          background: #fff8ef;
+          background: color-mix(in srgb, var(--warn) 13%, var(--panel));
           padding: .9rem 1rem;
           border-radius: 6px;
-          color: #6f4316;
+          color: var(--ink);
         }
         .footer-link a { color: var(--accent-2); font-weight: 800; text-decoration: none; }
         [data-testid="stVerticalBlockBorderWrapper"] {
-          background: var(--panel);
-          border-color: var(--line);
+          background: var(--panel) !important;
+          border-color: var(--line) !important;
           box-shadow: var(--shadow);
         }
         [data-testid="stFileUploaderDropzone"] {
-          background: var(--upload);
-          border: 1px dashed color-mix(in srgb, var(--accent) 60%, var(--line));
+          background: var(--upload) !important;
+          border: 1px dashed color-mix(in srgb, var(--accent) 62%, var(--line)) !important;
           border-radius: 10px;
         }
         [data-testid="stImage"] img {
@@ -143,109 +173,28 @@ def css(theme: str) -> None:
           background: var(--field);
         }
         div[data-testid="stMetric"] {
-          background: var(--field);
-          border: 1px solid var(--line);
+          background: var(--field) !important;
+          border: 1px solid var(--line) !important;
           border-radius: 8px;
           padding: .7rem .8rem;
         }
-        @media (prefers-color-scheme: dark) {
-          :root {
-            --ink: #edf7f3;
-            --muted: #b8c9c4;
-            --line: #314842;
-            --field: #172421;
-            --panel: rgba(16,29,26,.94);
-            --panel-strong: rgba(23,36,33,.98);
-            --page-soft: rgba(8,17,16,.88);
-            --page-base: rgba(8,13,12,.97);
-            --accent: #6ed3a6;
-            --accent-2: #9cc9ff;
-            --warn: #efb15f;
-            --shadow: 0 18px 54px rgba(0,0,0,.38);
-            --upload: #13231f;
-          }
-          .lead, .legend-item, .pill { color: var(--ink); }
-          .note { background: #2a2115; color: #ffdca8; }
-          h1, h2, h3, p, label, span { color: var(--ink); }
+        .stButton > button, .stDownloadButton > button {
+          border-radius: 8px !important;
+          border: 1px solid var(--line) !important;
+          background: var(--panel-strong) !important;
+          color: var(--ink) !important;
         }
+        .stProgress div div div div { background-color: var(--accent) !important; }
+        [data-testid="stSidebar"] {
+          background: var(--panel-strong) !important;
+          border-right: 1px solid var(--line);
+        }
+        h1, h2, h3, p, label, span, li, code { color: var(--ink); }
+        a { color: var(--accent-2) !important; }
         @media (max-width: 700px) {
           .block-container { padding-left: 1rem; padding-right: 1rem; }
           .hero { min-height: 340px; padding-top: 2rem; }
         }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-    if theme == "Dark":
-        override = """
-        :root {
-          --ink: #f5f7f7;
-          --muted: #b7c0c0;
-          --line: #2b3333;
-          --field: #151a1a;
-          --panel: rgba(12,14,14,.96);
-          --panel-strong: rgba(20,23,23,.98);
-          --page-soft: rgba(5,7,7,.94);
-          --page-base: rgba(0,0,0,.98);
-          --accent: #2fb47c;
-          --accent-2: #8ab4ff;
-          --warn: #e5a34f;
-          --shadow: 0 18px 58px rgba(0,0,0,.46);
-          --upload: #121817;
-        }
-        .stApp {
-          background:
-            linear-gradient(180deg, rgba(0,0,0,.92), rgba(8,10,10,.98) 48%),
-            url("https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=1800&q=80");
-          background-size: cover;
-          background-attachment: fixed;
-        }
-        .lead, .legend-item, .pill, h1, h2, h3, p, label, span { color: var(--ink); }
-        .note { background: #241b0f; color: #ffdca8; }
-        """
-    else:
-        override = """
-        :root {
-          --ink: #111827;
-          --muted: #52606d;
-          --line: #d8dee6;
-          --field: #f7f9fb;
-          --panel: rgba(255,255,255,.96);
-          --panel-strong: rgba(255,255,255,.99);
-          --page-soft: rgba(246,248,250,.94);
-          --page-base: rgba(255,255,255,.98);
-          --accent: #176b4f;
-          --accent-2: #245ca8;
-          --warn: #a45f19;
-          --shadow: 0 16px 46px rgba(17,24,39,.10);
-          --upload: #f2f6f5;
-        }
-        .stApp {
-          background:
-            linear-gradient(180deg, rgba(248,250,252,.94), rgba(255,255,255,.98) 48%),
-            url("https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=1800&q=80");
-          background-size: cover;
-          background-attachment: fixed;
-        }
-        .lead, .legend-item, .pill { color: #1f2937; }
-        """
-    st.markdown(
-        f"""
-        <style>
-        {override}
-        .stButton > button, .stDownloadButton > button {{
-          border-radius: 8px;
-          border: 1px solid var(--line);
-          background: var(--panel-strong);
-          color: var(--ink);
-        }}
-        .stProgress div div div div {{
-          background-color: var(--accent);
-        }}
-        [data-testid="stSidebar"] {{
-          background: var(--panel-strong);
-          border-right: 1px solid var(--line);
-        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -296,7 +245,9 @@ def render_legend() -> None:
     st.markdown('<div class="legend">' + "".join(rows) + "</div>", unsafe_allow_html=True)
 
 
-theme = st.sidebar.radio("Theme", ["Light", "Dark"], horizontal=True)
+st.markdown('<div class="theme-bar">', unsafe_allow_html=True)
+theme = st.radio("Theme", ["Light", "Dark"], horizontal=True, key="theme_toggle")
+st.markdown("</div>", unsafe_allow_html=True)
 css(theme)
 metrics = load_metrics()
 if "feedback_records" not in st.session_state:
@@ -573,10 +524,11 @@ with detail_cols[0]:
         )
 with detail_cols[1]:
     with st.container(border=True):
-        st.header("Improvement Roadmap")
+        st.header("How to Improve Accuracy")
         st.write(
-            "Collect a labelled Sentinel-2/LULC validation dataset, retrain above 64 x 64 resolution, test DeepLabV3+, U-Net++, or SegFormer, "
-            "add class balancing and stronger augmentation, evaluate on a held-out test set, publish `metrics.json`, and only then claim high accuracy."
+            "Collect labelled satellite images and masks, create a train/validation/test split, retrain above 64 x 64 resolution, "
+            "try U-Net++, DeepLabV3+, or SegFormer, measure Pixel Accuracy, Mean IoU, Dice, and Macro F1, and update `metrics.json` "
+            "only with real held-out results."
         )
 with detail_cols[2]:
     with st.container(border=True):

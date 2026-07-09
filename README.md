@@ -13,7 +13,7 @@ GitHub: https://github.com/AalimBaba/Land-Usage-Monitoring-Tool
 - Run real TensorFlow/Keras U-Net inference from `unet_model.h5`.
 - Display predicted segmentation mask, overlay, class distribution, and mean softmax confidence.
 - Collect metadata-only user feedback for rejected, uncertain, and completed predictions, with a session download option and no raw image storage by default.
-- Switch between clean Light and charcoal Dark themes in the Streamlit sidebar.
+- Switch between clean Light and charcoal Dark themes from a visible top-page toggle.
 - Run `validation_benchmark.py` to measure input-validation behavior separately from model accuracy.
 - Gracefully handle invalid images and missing model files.
 - Keep training, evaluation, and inference preprocessing consistent.
@@ -168,7 +168,7 @@ The feedback panel lets users report false rejections, false acceptances, or inc
 
 ## App Sections and Theme
 
-The live app includes recruiter-friendly sections for the problem statement, solution overview, key features, architecture/pipeline, demo workflow, accuracy and evaluation, limitations, improvement roadmap, tech stack, About Me, and project links. The sidebar includes a theme toggle:
+The live app includes recruiter-friendly sections for the problem statement, solution overview, key features, architecture/pipeline, demo workflow, accuracy and evaluation, limitations, improvement roadmap, tech stack, About Me, and project links. The top of the page includes a visible theme toggle:
 
 - **Light:** white/soft-grey professional interface with dark text.
 - **Dark:** black/charcoal interface with high-contrast cards, borders, links, upload areas, and progress bars.
