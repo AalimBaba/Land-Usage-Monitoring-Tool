@@ -429,6 +429,24 @@ def validate_land_image(image: Image.Image) -> InputValidationResult:
             fired,
         )
 
+    moderate_indoor_scene = (
+        indoor_score >= 2
+        and doc_score < 6
+        and (features["neutral_surface_ratio"] > 0.30 or features["smooth_tile_ratio"] > 0.30)
+        and (features["distributed_detail_ratio"] < 0.70 or features["colour_diversity"] < 170)
+        and features["land_color_mix"] <= 4
+    )
+    if moderate_indoor_scene:
+        return _result(
+            "Uncertain",
+            "The image is ambiguous. Segmentation is disabled by default, but you may run it manually for demonstration.",
+            features,
+            doc_score,
+            aerial_score,
+            indoor_score,
+            fired,
+        )
+
     hard_document_veto = (
         doc_score >= 7
         and (

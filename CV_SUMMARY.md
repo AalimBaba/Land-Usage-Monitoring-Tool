@@ -17,7 +17,7 @@ Python, Streamlit, TensorFlow/Keras, U-Net, NumPy, Pillow, Scikit-learn, Matplot
 
 Exact segmentation metrics achieved from real evaluation: **not available yet because the labelled held-out satellite image/mask dataset is not included in this repository.** Run `python evaluate_model.py --data-dir "path/to/SEN-2 LULC" --model unet_model.h5` to generate `metrics.json`, then add the real pixel accuracy, mIoU, Dice, precision, recall, F1-score, and per-class IoU values here.
 
-Input-validation benchmark: `13/13` built-in benchmark cases passed with `0` false accepts and `0` false rejects. This measures upload validation only, not U-Net segmentation accuracy.
+Input-validation benchmark: `17/17` built-in benchmark cases passed with `0` false accepts and `0` false rejects. This measures upload validation only, not U-Net segmentation accuracy.
 
 ## Live Demo
 

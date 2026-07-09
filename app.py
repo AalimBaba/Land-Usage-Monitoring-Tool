@@ -79,6 +79,8 @@ def css(theme: str) -> None:
         <style>
         :root {
         {theme_vars}
+          --glass: color-mix(in srgb, var(--panel) 78%, transparent);
+          --glass-strong: color-mix(in srgb, var(--panel-strong) 88%, transparent);
         }
         html, body, .stApp, [data-testid="stAppViewContainer"] {
           color: var(--ink);
@@ -99,9 +101,11 @@ def css(theme: str) -> None:
           padding: 3rem 0 2rem;
         }
         .theme-bar {
-          background: var(--panel);
+          background: var(--glass);
           border: 1px solid var(--line);
           box-shadow: var(--shadow);
+          backdrop-filter: blur(22px) saturate(1.22);
+          -webkit-backdrop-filter: blur(22px) saturate(1.22);
           border-radius: 8px;
           padding: .85rem 1rem;
           margin-bottom: 1rem;
@@ -135,8 +139,9 @@ def css(theme: str) -> None:
           gap: .8rem;
         }
         .metric {
-          background: var(--field);
+          background: var(--glass-strong);
           border: 1px solid var(--line);
+          backdrop-filter: blur(14px);
           border-radius: 8px;
           padding: .9rem;
         }
@@ -158,9 +163,11 @@ def css(theme: str) -> None:
         }
         .footer-link a { color: var(--accent-2); font-weight: 800; text-decoration: none; }
         [data-testid="stVerticalBlockBorderWrapper"] {
-          background: var(--panel) !important;
+          background: var(--glass) !important;
           border-color: var(--line) !important;
           box-shadow: var(--shadow);
+          backdrop-filter: blur(24px) saturate(1.18);
+          -webkit-backdrop-filter: blur(24px) saturate(1.18);
         }
         [data-testid="stFileUploaderDropzone"] {
           background: var(--upload) !important;
@@ -178,16 +185,57 @@ def css(theme: str) -> None:
           border-radius: 8px;
           padding: .7rem .8rem;
         }
+        div[data-testid="stAlert"] {
+          background: var(--glass-strong) !important;
+          color: var(--ink) !important;
+          border: 1px solid var(--line) !important;
+          border-radius: 8px !important;
+        }
         .stButton > button, .stDownloadButton > button {
           border-radius: 8px !important;
           border: 1px solid var(--line) !important;
           background: var(--panel-strong) !important;
           color: var(--ink) !important;
+          box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 16%, transparent);
+        }
+        .stButton > button:hover, .stDownloadButton > button:hover {
+          border-color: var(--accent) !important;
+          color: var(--accent-2) !important;
         }
         .stProgress div div div div { background-color: var(--accent) !important; }
         [data-testid="stSidebar"] {
           background: var(--panel-strong) !important;
           border-right: 1px solid var(--line);
+        }
+        div[data-baseweb="select"] > div,
+        div[data-baseweb="input"] > div,
+        div[data-baseweb="textarea"] textarea,
+        textarea,
+        input {
+          background: var(--field) !important;
+          color: var(--ink) !important;
+          border-color: var(--line) !important;
+        }
+        div[data-baseweb="select"] span,
+        div[data-baseweb="select"] div,
+        div[data-baseweb="popover"],
+        div[data-baseweb="popover"] * {
+          color: var(--ink) !important;
+          background-color: var(--field) !important;
+        }
+        div[role="listbox"],
+        div[role="option"] {
+          background: var(--field) !important;
+          color: var(--ink) !important;
+        }
+        div[role="option"]:hover {
+          background: color-mix(in srgb, var(--accent) 18%, var(--field)) !important;
+        }
+        [data-testid="stRadio"] label,
+        [data-testid="stRadio"] p,
+        [data-testid="stFileUploaderDropzone"] span,
+        [data-testid="stFileUploaderDropzone"] small {
+          color: var(--ink) !important;
         }
         h1, h2, h3, p, label, span, li, code { color: var(--ink); }
         a { color: var(--accent-2) !important; }

@@ -1,7 +1,7 @@
 {
   "summary": {
-    "total_cases": 13,
-    "passed": 13,
+    "total_cases": 17,
+    "passed": 17,
     "failed": 0,
     "validation_accuracy": 1.0,
     "false_accepts": 0,
@@ -113,6 +113,46 @@
     },
     {
       "name": "indoor_room",
+      "category": "invalid",
+      "expected": "Not Suitable",
+      "actual": "Rejected",
+      "segmentation": "Not run",
+      "passed": true,
+      "reason": "This appears to be a ground-level indoor image, not satellite or aerial land imagery.",
+      "source": "built-in synthetic"
+    },
+    {
+      "name": "bedroom",
+      "category": "invalid",
+      "expected": "Not Suitable",
+      "actual": "Rejected",
+      "segmentation": "Not run",
+      "passed": true,
+      "reason": "This appears to be a ground-level indoor image, not satellite or aerial land imagery.",
+      "source": "built-in synthetic"
+    },
+    {
+      "name": "living_room",
+      "category": "invalid",
+      "expected": "Not Suitable",
+      "actual": "Rejected",
+      "segmentation": "Not run",
+      "passed": true,
+      "reason": "This appears to be a ground-level indoor image, not satellite or aerial land imagery.",
+      "source": "built-in synthetic"
+    },
+    {
+      "name": "office_indoor_scene",
+      "category": "invalid",
+      "expected": "Not Suitable",
+      "actual": "Rejected",
+      "segmentation": "Not run",
+      "passed": true,
+      "reason": "This appears to be a ground-level indoor image, not satellite or aerial land imagery.",
+      "source": "built-in synthetic"
+    },
+    {
+      "name": "furniture_photo",
       "category": "invalid",
       "expected": "Not Suitable",
       "actual": "Rejected",

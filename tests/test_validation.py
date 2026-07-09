@@ -89,6 +89,66 @@ def indoor_room_image(seed: int = 42) -> Image.Image:
     return Image.fromarray(np.clip(arr.astype(np.int16) + noise, 0, 255).astype(np.uint8))
 
 
+def bedroom_image(seed: int = 61) -> Image.Image:
+    rng = np.random.default_rng(seed)
+    arr = np.full((256, 256, 3), (210, 203, 194), dtype=np.uint8)
+    arr[:92, :] = (226, 222, 214)
+    arr[92:178, :] = (188, 176, 164)
+    arr[178:, :] = (128, 109, 92)
+    arr[116:176, 35:218] = (238, 238, 230)
+    arr[130:168, 50:112] = (168, 190, 215)
+    arr[118:184, 210:226] = (92, 72, 58)
+    arr[76:126, 22:82] = (118, 156, 188)
+    arr[90:96, :] = (142, 132, 124)
+    noise = rng.normal(0, 6, arr.shape)
+    return Image.fromarray(np.clip(arr.astype(np.int16) + noise, 0, 255).astype(np.uint8))
+
+
+def living_room_image(seed: int = 62) -> Image.Image:
+    rng = np.random.default_rng(seed)
+    arr = np.full((256, 256, 3), (196, 184, 168), dtype=np.uint8)
+    arr[:110, :] = (216, 207, 192)
+    arr[110:178, :] = (170, 152, 134)
+    arr[178:, :] = (104, 86, 70)
+    arr[124:178, 42:214] = (82, 72, 68)
+    arr[108:142, 62:116] = (145, 86, 74)
+    arr[106:144, 142:200] = (70, 94, 118)
+    arr[44:110, 176:224] = (228, 224, 210)
+    arr[:, 38:44] = (118, 102, 88)
+    arr[172:180, :] = (68, 58, 52)
+    noise = rng.normal(0, 8, arr.shape)
+    return Image.fromarray(np.clip(arr.astype(np.int16) + noise, 0, 255).astype(np.uint8))
+
+
+def office_indoor_image(seed: int = 63) -> Image.Image:
+    rng = np.random.default_rng(seed)
+    arr = np.full((256, 256, 3), (202, 205, 205), dtype=np.uint8)
+    arr[:82, :] = (235, 236, 232)
+    arr[82:174, :] = (184, 188, 190)
+    arr[174:, :] = (126, 124, 118)
+    arr[104:162, 34:128] = (42, 54, 70)
+    arr[112:170, 146:232] = (48, 54, 62)
+    arr[162:178, 18:242] = (88, 78, 66)
+    arr[36:92, 168:220] = (150, 190, 220)
+    arr[:, 132:138] = (118, 118, 116)
+    noise = rng.normal(0, 7, arr.shape)
+    return Image.fromarray(np.clip(arr.astype(np.int16) + noise, 0, 255).astype(np.uint8))
+
+
+def furniture_photo_image(seed: int = 64) -> Image.Image:
+    rng = np.random.default_rng(seed)
+    arr = np.full((256, 256, 3), (180, 168, 152), dtype=np.uint8)
+    arr[:130, :] = (214, 202, 188)
+    arr[130:, :] = (118, 98, 78)
+    arr[84:202, 58:198] = (92, 64, 48)
+    arr[98:140, 78:178] = (150, 96, 72)
+    arr[202:244, 68:88] = (66, 54, 48)
+    arr[202:244, 170:190] = (66, 54, 48)
+    arr[58:120, 210:232] = (230, 224, 198)
+    noise = rng.normal(0, 8, arr.shape)
+    return Image.fromarray(np.clip(arr.astype(np.int16) + noise, 0, 255).astype(np.uint8))
+
+
 def blank_image() -> Image.Image:
     return Image.new("RGB", (256, 256), (245, 245, 245))
 
@@ -254,6 +314,34 @@ def test_indoor_room_photo_is_not_suitable():
     assert result.image_relevance != "Suitable"
     if result.image_relevance == "Rejected":
         assert "ground-level indoor image" in " ".join(result.reasons)
+
+
+def test_bedroom_is_not_suitable():
+    result = validate_land_image(bedroom_image())
+
+    assert result.image_relevance in {"Rejected", "Uncertain"}
+    assert result.segmentation == "Not run"
+
+
+def test_living_room_is_not_suitable():
+    result = validate_land_image(living_room_image())
+
+    assert result.image_relevance in {"Rejected", "Uncertain"}
+    assert result.segmentation == "Not run"
+
+
+def test_office_indoor_scene_is_not_suitable():
+    result = validate_land_image(office_indoor_image())
+
+    assert result.image_relevance in {"Rejected", "Uncertain"}
+    assert result.segmentation == "Not run"
+
+
+def test_furniture_photo_is_not_suitable():
+    result = validate_land_image(furniture_photo_image())
+
+    assert result.image_relevance in {"Rejected", "Uncertain"}
+    assert result.segmentation == "Not run"
 
 
 def test_blank_image_is_rejected():

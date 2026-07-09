@@ -34,13 +34,17 @@ class BenchmarkCase:
 def _load_builtin_samples() -> list[tuple[str, str, str, Callable[[], Image.Image]]]:
     from tests.test_validation import (
         aerial_land_image,
+        bedroom_image,
         blank_image,
         certificate_image,
         coastline_aerial_image,
         dense_urban_aerial_image,
+        furniture_photo_image,
         forest_satellite_image,
         id_card_image,
         indoor_room_image,
+        living_room_image,
+        office_indoor_image,
         photographed_id_card_image,
         portrait_image,
         rural_farmland_aerial_image,
@@ -60,6 +64,10 @@ def _load_builtin_samples() -> list[tuple[str, str, str, Callable[[], Image.Imag
         ("certificate", "invalid", "Not Suitable", certificate_image),
         ("document_screenshot", "invalid", "Not Suitable", text_heavy_screenshot),
         ("indoor_room", "invalid", "Not Suitable", indoor_room_image),
+        ("bedroom", "invalid", "Not Suitable", bedroom_image),
+        ("living_room", "invalid", "Not Suitable", living_room_image),
+        ("office_indoor_scene", "invalid", "Not Suitable", office_indoor_image),
+        ("furniture_photo", "invalid", "Not Suitable", furniture_photo_image),
         ("portrait_selfie", "invalid", "Not Suitable", portrait_image),
         ("blank_simple_graphic", "invalid", "Not Suitable", blank_image),
     ]
