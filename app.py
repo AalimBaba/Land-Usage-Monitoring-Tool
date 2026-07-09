@@ -4,11 +4,12 @@ import json
 from pathlib import Path
 
 import streamlit as st
-from PIL import Image, UnidentifiedImageError
+from PIL import Image
 
 from land_usage.config import CLASS_NAMES, PALETTE, REPO_URL
 from land_usage.feedback import append_feedback, feedback_record, records_to_jsonl
 from land_usage.inference import ModelUnavailableError, load_model, predict_image
+from land_usage.uploads import UploadImageError, open_uploaded_image
 from land_usage.validation import InputValidationResult, validate_land_image
 
 
@@ -240,7 +241,10 @@ def render_feedback_panel(
 ) -> None:
     with st.container(border=True):
         st.subheader("Feedback")
-        st.caption("Privacy note: uploaded images are not stored by default. Feedback saves metadata only.")
+        st.caption(
+            "Privacy note: uploaded images are not stored by default. Feedback saves metadata only. "
+            "Feedback is stored for this session only unless downloaded."
+        )
         with st.form(f"feedback_form_{key}"):
             category = st.radio(
                 "Was this result correct?",
@@ -284,9 +288,12 @@ def render_feedback_panel(
             st.session_state.feedback_records.append(record)
             saved = append_feedback(record)
             if saved:
-                st.success("Feedback saved to feedback/feedback_log.jsonl.")
+                st.success(
+                    "Feedback added to this session log. Streamlit Cloud file storage is temporary, "
+                    "so download the log if you want to keep it."
+                )
             else:
-                st.warning("Feedback kept in this session. Streamlit Cloud storage may be temporary or unavailable.")
+                st.warning("Feedback kept in this session. Download the log if you want to keep it.")
 
         if st.session_state.feedback_records:
             st.download_button(
@@ -335,7 +342,7 @@ with st.container(border=True):
         st.info("Choose an image to run inference.")
     else:
         try:
-            image = Image.open(upload).convert("RGB")
+            image = open_uploaded_image(upload)
             validation = validate_land_image(image)
 
             should_run_segmentation = validation.is_suitable
@@ -356,9 +363,9 @@ with st.container(border=True):
             elif validation.is_uncertain:
                 render_validation_status(validation)
                 st.warning(
-                    "This image may not be satellite or aerial land imagery. Run segmentation only if the upload is actually a land, aerial, or remote-sensing image."
+                    "The image is ambiguous. Segmentation is disabled by default, but you may run it manually for demonstration."
                 )
-                should_run_segmentation = st.checkbox("Run segmentation anyway for this uncertain image")
+                should_run_segmentation = st.button("Run segmentation anyway", type="secondary")
                 if not should_run_segmentation:
                     render_feedback_panel(
                         image=image,
@@ -398,8 +405,8 @@ with st.container(border=True):
                 confidence=result.mean_confidence,
                 key="result",
             )
-        except UnidentifiedImageError:
-            st.error("That file is not a valid image. Please upload a PNG or JPEG image.")
+        except UploadImageError as exc:
+            st.error(str(exc))
         except ModelUnavailableError as exc:
             st.error(str(exc))
         except Exception as exc:

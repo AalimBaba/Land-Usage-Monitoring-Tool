@@ -45,7 +45,7 @@ def _edge_map(gray: np.ndarray, threshold: int = 35) -> np.ndarray:
     return diff_x | diff_y
 
 
-def _tile_stats(gray: np.ndarray, tile: int = 32) -> tuple[float, float, float]:
+def _tile_stats(gray: np.ndarray, tile: int = 32) -> tuple[float, float, float, float]:
     h, w = gray.shape
     stds = []
     means = []
@@ -57,7 +57,7 @@ def _tile_stats(gray: np.ndarray, tile: int = 32) -> tuple[float, float, float]:
                 means.append(float(patch.mean()))
     std_arr = np.asarray(stds, dtype=np.float32)
     mean_arr = np.asarray(means, dtype=np.float32)
-    return float(std_arr.mean()), float((std_arr > 14).mean()), float(mean_arr.std())
+    return float(std_arr.mean()), float((std_arr > 14).mean()), float(mean_arr.std()), float((std_arr < 8).mean())
 
 
 def _extract_features(image: Image.Image) -> dict[str, float | int]:
@@ -89,6 +89,7 @@ def _extract_features(image: Image.Image) -> dict[str, float | int]:
     text_col_ratio = float(((col_dark > 0.012) & (col_dark < 0.55)).mean())
     horizontal_line_density = float((row_edge > 0.20).mean())
     vertical_line_density = float((col_edge > 0.20).mean())
+    right_vertical_stripes = float((col_edge[int(col_edge.size * 0.65) :] > 0.18).mean())
 
     border = np.zeros_like(edges, dtype=bool)
     band = 12
@@ -110,8 +111,9 @@ def _extract_features(image: Image.Image) -> dict[str, float | int]:
     skin = (r > 95) & (g > 40) & (b > 20) & (r > g) & (r > b) & ((r - g) > 15) & (delta > 15)
     h, w = gray.shape
     central_skin = float(skin[h // 5 : h * 4 // 5, w // 5 : w * 4 // 5].mean())
+    left_photo_skin = float(skin[h // 5 : h * 4 // 5, : w // 2].mean())
 
-    tile_texture_mean, distributed_detail_ratio, spatial_variance = _tile_stats(gray)
+    tile_texture_mean, distributed_detail_ratio, spatial_variance, smooth_tile_ratio = _tile_stats(gray)
     unique_rounded_colors = int(np.unique((rgb // 32).reshape(-1, 3), axis=0).shape[0])
 
     return {
@@ -123,6 +125,7 @@ def _extract_features(image: Image.Image) -> dict[str, float | int]:
         "line_density": float((horizontal_line_density + vertical_line_density) / 2),
         "horizontal_line_density": horizontal_line_density,
         "vertical_line_density": vertical_line_density,
+        "right_vertical_stripe_ratio": right_vertical_stripes,
         "rectangular_boundary_score": float(rectangular_boundary_score),
         "text_density_estimate": float((text_row_ratio + text_col_ratio) / 2),
         "text_row_ratio": text_row_ratio,
@@ -137,11 +140,13 @@ def _extract_features(image: Image.Image) -> dict[str, float | int]:
         "top_sky_ratio": top_sky_ratio,
         "texture_mean": tile_texture_mean,
         "distributed_detail_ratio": distributed_detail_ratio,
+        "smooth_tile_ratio": smooth_tile_ratio,
         "spatial_variance": spatial_variance,
         "natural_ratio": natural_ratio,
         "land_color_mix": int(land_color_mix),
         "skin_ratio": float(skin.mean()),
         "central_skin_ratio": central_skin,
+        "left_photo_skin_ratio": left_photo_skin,
         "warm_indoor_ratio": float(warm_indoor.mean()),
         "neutral_surface_ratio": float(neutral_surface.mean()),
     }
@@ -160,6 +165,15 @@ def _score_indoor(features: dict[str, float | int]) -> tuple[int, list[str]]:
     if features["neutral_surface_ratio"] > 0.45 and features["texture_mean"] < 24:
         score += 1
         fired.append("large smooth wall/floor-like surfaces")
+    if features["smooth_tile_ratio"] > 0.30 and features["land_color_mix"] <= 2:
+        score += 1
+        fired.append("large smooth interior/object regions")
+    if features["warm_indoor_ratio"] > 0.25 and features["neutral_surface_ratio"] > 0.18 and features["line_density"] < 0.05:
+        score += 2
+        fired.append("warm room-like surfaces with low top-down structure")
+    if features["skin_ratio"] > 0.24 and features["land_color_mix"] <= 3 and features["edge_density"] < 0.05:
+        score += 2
+        fired.append("ground-level person/interior colour composition")
     if features["land_color_mix"] <= 2 and features["colour_diversity"] < 130:
         score += 1
         fired.append("limited top-down land-cover diversity")
@@ -213,6 +227,29 @@ def _score_document(features: dict[str, float | int]) -> tuple[int, list[str]]:
     if flat_document:
         score += 1
         fired.append("flat low-saturation document/card appearance")
+
+    barcode_like_region = features["right_vertical_stripe_ratio"] > 0.10 and features["low_saturation_ratio"] > 0.45
+    if barcode_like_region:
+        score += 2
+        fired.append("barcode-like vertical stripe region")
+
+    photo_box_text_layout = (
+        features["left_photo_skin_ratio"] > 0.025
+        and features["text_density_estimate"] > 0.25
+        and (features["light_ratio"] > 0.25 or features["low_saturation_ratio"] > 0.45)
+    )
+    if photo_box_text_layout:
+        score += 2
+        fired.append("photo box plus text/card layout")
+
+    uniform_card_document = (
+        features["neutral_surface_ratio"] > 0.55
+        and features["text_density_estimate"] > 0.30
+        and features["colour_diversity"] < 125
+    )
+    if uniform_card_document:
+        score += 2
+        fired.append("uniform card/document background with text")
 
     dense_id_card_signature = (
         features["text_density_estimate"] > 0.50
@@ -297,17 +334,56 @@ def validate_land_image(image: Image.Image) -> InputValidationResult:
     if features["entropy"] < 1.2 or (features["texture_mean"] < 3 and features["colour_diversity"] < 6):
         return _result("Rejected", "Image is blank or nearly blank.", features, doc_score, aerial_score, indoor_score, fired)
 
-    if indoor_score >= 3 and features["warm_indoor_ratio"] > 0.35:
-        return _result("Rejected", "Indoor or ground-level photo characteristics detected.", features, doc_score, aerial_score, indoor_score, fired)
+    indoor_veto = (
+        indoor_score >= 4
+        and features["warm_indoor_ratio"] > 0.22
+        and features["line_density"] < 0.08
+        and features["land_color_mix"] <= 3
+    )
+    if indoor_veto or (indoor_score >= 3 and features["warm_indoor_ratio"] > 0.35):
+        return _result(
+            "Rejected",
+            "This appears to be a ground-level indoor image, not satellite or aerial land imagery.",
+            features,
+            doc_score,
+            aerial_score,
+            indoor_score,
+            fired,
+        )
 
     if features["central_skin_ratio"] > 0.38 or (features["skin_ratio"] > 0.30 and aerial_score < 4):
         return _result("Rejected", "Person or portrait-like content detected.", features, doc_score, aerial_score, indoor_score, fired)
 
-    if doc_score >= 6 and aerial_score <= 3:
-        return _result("Rejected", "Strong document-like layout detected.", features, doc_score, aerial_score, indoor_score, fired)
+    hard_document_veto = (
+        doc_score >= 7
+        and (
+            features["low_saturation_ratio"] > 0.45
+            or features["light_ratio"] > 0.35
+            or features["right_vertical_stripe_ratio"] > 0.10
+        )
+        and features["colour_diversity"] < 140
+    )
+    if hard_document_veto or (doc_score >= 6 and aerial_score <= 3):
+        return _result(
+            "Rejected",
+            "This appears to be an ID card or document, not satellite or aerial land imagery.",
+            features,
+            doc_score,
+            aerial_score,
+            indoor_score,
+            fired,
+        )
 
     if doc_score >= 6 and aerial_score <= 4:
-        return _result("Rejected", "Strong document-like layout detected.", features, doc_score, aerial_score, indoor_score, fired)
+        return _result(
+            "Rejected",
+            "This appears to be an ID card or document, not satellite or aerial land imagery.",
+            features,
+            doc_score,
+            aerial_score,
+            indoor_score,
+            fired,
+        )
 
     strong_id_card_signature = (
         doc_score >= 8
@@ -316,11 +392,19 @@ def validate_land_image(image: Image.Image) -> InputValidationResult:
         and features["colour_diversity"] < 115
     )
     if strong_id_card_signature:
-        return _result("Rejected", "Strong document-like layout detected.", features, doc_score, aerial_score, indoor_score, fired)
+        return _result(
+            "Rejected",
+            "This appears to be an ID card or document, not satellite or aerial land imagery.",
+            features,
+            doc_score,
+            aerial_score,
+            indoor_score,
+            fired,
+        )
 
     screenshot_ui_with_land = features["top_dark_ratio"] > 0.35 and features["light_ratio"] > 0.12 and aerial_score >= 4
     if screenshot_ui_with_land:
-        return _result("Uncertain", "Screenshot-like browser UI detected around possible land imagery; manual continuation is available.", features, doc_score, aerial_score, indoor_score, fired)
+        return _result("Uncertain", "The image is ambiguous. Segmentation is disabled by default, but you may run it manually for demonstration.", features, doc_score, aerial_score, indoor_score, fired)
 
     ground_level_horizon = (
         features["top_sky_ratio"] > 0.70
@@ -329,13 +413,13 @@ def validate_land_image(image: Image.Image) -> InputValidationResult:
         and aerial_score >= 4
     )
     if ground_level_horizon:
-        return _result("Uncertain", "Ground-level landscape cues detected; manual continuation is available.", features, doc_score, aerial_score, indoor_score, fired)
+        return _result("Uncertain", "The image is ambiguous. Segmentation is disabled by default, but you may run it manually for demonstration.", features, doc_score, aerial_score, indoor_score, fired)
 
     if indoor_score >= 4 and aerial_score <= 5:
-        return _result("Rejected", "Indoor or ground-level photo characteristics detected.", features, doc_score, aerial_score, indoor_score, fired)
+        return _result("Rejected", "This appears to be a ground-level indoor image, not satellite or aerial land imagery.", features, doc_score, aerial_score, indoor_score, fired)
 
     if indoor_score >= 4 and aerial_score <= 7:
-        return _result("Uncertain", "Indoor or ground-level photo characteristics detected; manual continuation is available.", features, doc_score, aerial_score, indoor_score, fired)
+        return _result("Uncertain", "The image is ambiguous. Segmentation is disabled by default, but you may run it manually for demonstration.", features, doc_score, aerial_score, indoor_score, fired)
 
     if aerial_score >= 6 and doc_score <= 5:
         return _result("Suitable", "Multiple aerial/land characteristics detected.", features, doc_score, aerial_score, indoor_score, fired)
@@ -344,9 +428,9 @@ def validate_land_image(image: Image.Image) -> InputValidationResult:
         return _result("Suitable", "Aerial/land evidence is stronger than document-like evidence.", features, doc_score, aerial_score, indoor_score, fired)
 
     if doc_score >= 5 and aerial_score <= 4:
-        return _result("Rejected", "Strong document-like layout detected.", features, doc_score, aerial_score, indoor_score, fired)
+        return _result("Rejected", "This appears to be an ID card or document, not satellite or aerial land imagery.", features, doc_score, aerial_score, indoor_score, fired)
 
     if aerial_score < 3 and doc_score < 4:
         return _result("Rejected", "Image contains insufficient aerial/land characteristics.", features, doc_score, aerial_score, indoor_score, fired)
 
-    return _result("Uncertain", "Input is ambiguous; manual continuation is available.", features, doc_score, aerial_score, indoor_score, fired)
+    return _result("Uncertain", "The image is ambiguous. Segmentation is disabled by default, but you may run it manually for demonstration.", features, doc_score, aerial_score, indoor_score, fired)

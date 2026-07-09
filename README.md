@@ -12,7 +12,7 @@ GitHub: https://github.com/AalimBaba/Land-Usage-Monitoring-Tool
 - Reject obvious out-of-distribution uploads such as documents, certificates, screenshots, portraits, blank images, and simple graphics before segmentation.
 - Run real TensorFlow/Keras U-Net inference from `unet_model.h5`.
 - Display predicted segmentation mask, overlay, class distribution, and mean softmax confidence.
-- Collect metadata-only user feedback for rejected, uncertain, and completed predictions without storing raw uploaded images by default.
+- Collect metadata-only user feedback for rejected, uncertain, and completed predictions, with a session download option and no raw image storage by default.
 - Gracefully handle invalid images and missing model files.
 - Keep training, evaluation, and inference preprocessing consistent.
 - Report honest metrics only from real evaluation runs.
@@ -64,7 +64,7 @@ For unsplit datasets, the scripts create reproducible train/validation/test spli
 
 The bundled model is a compact U-Net with input shape `64 x 64 x 3` and seven output classes. It is suitable for demonstration and experimentation, not production-grade monitoring.
 
-The deployed app includes a lightweight multi-stage pre-inference validation layer. This gate checks file integrity, scores document-like evidence, scores aerial/land evidence, and returns `Suitable`, `Uncertain`, or `Rejected` before U-Net inference. It uses image statistics, document/text-density cues, skin-tone layout, blank-image detection, texture, colour diversity, spatial variance, and land-colour patterns. It is intentionally lightweight for Streamlit Cloud and should be treated as an explainable heuristic, not a calibrated semantic classifier.
+The deployed app includes a lightweight multi-stage pre-inference validation layer. This gate checks file integrity, scores document/card evidence, scores indoor/ground-photo evidence, scores aerial/land evidence, and returns `Suitable`, `Uncertain`, or `Rejected` before U-Net inference. It uses image statistics, text-density cues, rectangular card/document cues, photo-box and barcode-like layout cues, skin-tone layout, blank-image detection, smooth indoor-surface cues, texture, colour diversity, spatial variance, and land-colour patterns. It is intentionally lightweight for Streamlit Cloud and should be treated as an explainable heuristic, not a calibrated semantic classifier.
 
 ## Why the Original Accuracy Was Limited
 
@@ -128,7 +128,7 @@ streamlit run app.py
 
 Upload a PNG/JPEG image in the "Try the Model" area. The app resizes the image to `64 x 64`, runs the U-Net, and shows the predicted segmentation. Confidence is the model's mean softmax confidence, not a guarantee of real-world correctness.
 
-The feedback panel lets users report false rejections, false acceptances, or incorrect-looking land predictions. Feedback is stored as metadata-only JSONL at `feedback/feedback_log.jsonl` when the runtime filesystem allows it, and the current session log can be downloaded from the app.
+The feedback panel lets users report false rejections, false acceptances, or incorrect-looking land predictions. On Streamlit Community Cloud, app-local files are temporary and should not be treated as durable storage. The app therefore keeps feedback in the current Streamlit session and exposes a **Download feedback log** button after feedback is submitted. It also attempts a best-effort metadata-only JSONL write to `feedback/feedback_log.jsonl` when the runtime filesystem allows it, but users should download the JSONL log if they need to keep it. Uploaded images are not stored by default.
 
 ## Deployment
 

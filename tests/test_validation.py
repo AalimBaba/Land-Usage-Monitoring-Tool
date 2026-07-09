@@ -229,6 +229,7 @@ def test_id_card_document_is_rejected():
 
     assert result.image_relevance == "Rejected"
     assert result.segmentation == "Not run"
+    assert "ID card or document" in " ".join(result.reasons)
 
 
 def test_photographed_id_card_is_rejected():
@@ -236,6 +237,7 @@ def test_photographed_id_card_is_rejected():
 
     assert result.image_relevance == "Rejected"
     assert result.segmentation == "Not run"
+    assert "ID card or document" in " ".join(result.reasons)
 
 
 def test_portrait_is_rejected():
@@ -249,6 +251,9 @@ def test_indoor_room_photo_is_not_suitable():
 
     assert result.image_relevance in {"Rejected", "Uncertain"}
     assert result.segmentation == "Not run"
+    assert result.image_relevance != "Suitable"
+    if result.image_relevance == "Rejected":
+        assert "ground-level indoor image" in " ".join(result.reasons)
 
 
 def test_blank_image_is_rejected():
@@ -313,6 +318,8 @@ def test_ground_level_landscape_is_uncertain():
     result = validate_land_image(ground_landscape_photo())
 
     assert result.image_relevance == "Uncertain"
+    assert result.segmentation == "Not run"
+    assert "Segmentation is disabled by default" in " ".join(result.reasons)
 
 
 def test_screenshot_containing_satellite_image_is_uncertain():
