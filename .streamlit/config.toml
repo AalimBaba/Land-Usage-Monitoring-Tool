@@ -1,5 +1,6 @@
 [server]
 headless = true
+fileWatcherType = "none"
 enableCORS = false
 enableXsrfProtection = true
 
@@ -9,4 +10,3 @@ backgroundColor = "#f7faf8"
 secondaryBackgroundColor = "#eef5f1"
 textColor = "#10211f"
 font = "sans serif"
-
