@@ -86,17 +86,16 @@ def css(theme: str) -> None:
           radial-gradient(circle at 85% 4%, rgba(167, 139, 250, .16), transparent 30%),
           linear-gradient(180deg, #f8fafc 0%, #ffffff 48%, #f3f6fb 100%)
         """
-    st.markdown(
-        f"""
+    css_text = """
         <style>
         :root {
-        {theme_vars}
+        __THEME_VARS__
           --glass: var(--panel);
           --glass-strong: var(--panel-strong);
         }
         html, body, .stApp, [data-testid="stAppViewContainer"] {
           color: var(--ink) !important;
-          background: {page_background} !important;
+          background: __PAGE_BACKGROUND__ !important;
           background-attachment: fixed !important;
         }
         [data-testid="stHeader"] {
@@ -292,7 +291,10 @@ def css(theme: str) -> None:
           .hero { min-height: 340px; padding-top: 2rem; }
         }
         </style>
-        """,
+        """
+    css_text = css_text.replace("__THEME_VARS__", theme_vars).replace("__PAGE_BACKGROUND__", page_background)
+    st.markdown(
+        css_text,
         unsafe_allow_html=True,
     )
 
