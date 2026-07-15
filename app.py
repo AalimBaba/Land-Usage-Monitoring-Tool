@@ -38,55 +38,73 @@ def load_metrics() -> dict:
 def css(theme: str) -> None:
     if theme == "Dark":
         theme_vars = """
-          --ink: #f4f7f7;
-          --muted: #a8b3b3;
-          --line: #2b3336;
-          --field: #15191b;
-          --panel: #0d1011;
-          --panel-strong: #171b1d;
-          --page-soft: #090b0c;
+          --ink: #f8fafc;
+          --muted: #b8c2cc;
+          --line: rgba(148, 163, 184, .28);
+          --field: rgba(20, 24, 31, .96);
+          --panel: rgba(12, 15, 21, .78);
+          --panel-strong: rgba(22, 27, 36, .92);
+          --page-soft: #05070b;
           --page-base: #000000;
-          --accent: #4f9cff;
-          --accent-2: #7dd3fc;
-          --warn: #f2b35d;
-          --shadow: 0 18px 58px rgba(0,0,0,.48);
-          --upload: #121719;
-          --success-bg: #10261c;
-          --error-bg: #331719;
-          --info-bg: #111f2d;
+          --accent: #60a5fa;
+          --accent-2: #22d3ee;
+          --accent-3: #a78bfa;
+          --warn: #f5b85b;
+          --shadow: 0 22px 70px rgba(0,0,0,.54);
+          --upload: rgba(18, 24, 35, .92);
+          --success-bg: rgba(16, 185, 129, .12);
+          --error-bg: rgba(244, 63, 94, .12);
+          --info-bg: rgba(96, 165, 250, .12);
+        """
+        page_background = """
+          radial-gradient(circle at 18% 6%, rgba(96, 165, 250, .20), transparent 32%),
+          radial-gradient(circle at 78% 0%, rgba(167, 139, 250, .18), transparent 30%),
+          linear-gradient(180deg, #05070b 0%, #0a0d14 46%, #000000 100%)
         """
     else:
         theme_vars = """
           --ink: #111827;
-          --muted: #52606d;
-          --line: #d8dee6;
-          --field: #f7f9fb;
-          --panel: #ffffff;
-          --panel-strong: #f8fafc;
-          --page-soft: #f5f7fa;
+          --muted: #5f6b7a;
+          --line: rgba(148, 163, 184, .36);
+          --field: rgba(255, 255, 255, .94);
+          --panel: rgba(255, 255, 255, .72);
+          --panel-strong: rgba(255, 255, 255, .92);
+          --page-soft: #f6f7fb;
           --page-base: #ffffff;
           --accent: #2563eb;
-          --accent-2: #0f766e;
+          --accent-2: #0891b2;
+          --accent-3: #7c3aed;
           --warn: #a45f19;
-          --shadow: 0 16px 46px rgba(17,24,39,.10);
-          --upload: #f2f6f8;
-          --success-bg: #edfdf4;
-          --error-bg: #fff1f2;
-          --info-bg: #eff6ff;
+          --shadow: 0 20px 55px rgba(15, 23, 42, .10);
+          --upload: rgba(248, 250, 252, .96);
+          --success-bg: rgba(16, 185, 129, .10);
+          --error-bg: rgba(244, 63, 94, .10);
+          --info-bg: rgba(37, 99, 235, .10);
+        """
+        page_background = """
+          radial-gradient(circle at 12% 2%, rgba(96, 165, 250, .18), transparent 28%),
+          radial-gradient(circle at 85% 4%, rgba(167, 139, 250, .16), transparent 30%),
+          linear-gradient(180deg, #f8fafc 0%, #ffffff 48%, #f3f6fb 100%)
         """
     st.markdown(
         f"""
         <style>
         :root {
         {theme_vars}
-          --glass: color-mix(in srgb, var(--panel) 78%, transparent);
-          --glass-strong: color-mix(in srgb, var(--panel-strong) 88%, transparent);
+          --glass: var(--panel);
+          --glass-strong: var(--panel-strong);
         }
         html, body, .stApp, [data-testid="stAppViewContainer"] {
-          color: var(--ink);
-          background: linear-gradient(180deg, var(--page-soft), var(--page-base) 46%) !important;
+          color: var(--ink) !important;
+          background: {page_background} !important;
+          background-attachment: fixed !important;
         }
-        [data-testid="stHeader"] { background: color-mix(in srgb, var(--panel) 84%, transparent) !important; backdrop-filter: blur(14px); }
+        [data-testid="stHeader"] {
+          background: color-mix(in srgb, var(--panel-strong) 76%, transparent) !important;
+          backdrop-filter: blur(20px) saturate(1.25);
+          -webkit-backdrop-filter: blur(20px) saturate(1.25);
+          border-bottom: 1px solid var(--line);
+        }
         .block-container {
           padding-top: 1.4rem;
           padding-left: clamp(1rem, 3vw, 3.5rem);
@@ -104,8 +122,8 @@ def css(theme: str) -> None:
           background: var(--glass);
           border: 1px solid var(--line);
           box-shadow: var(--shadow);
-          backdrop-filter: blur(22px) saturate(1.22);
-          -webkit-backdrop-filter: blur(22px) saturate(1.22);
+          backdrop-filter: blur(26px) saturate(1.28);
+          -webkit-backdrop-filter: blur(26px) saturate(1.28);
           border-radius: 8px;
           padding: .85rem 1rem;
           margin-bottom: 1rem;
@@ -125,8 +143,8 @@ def css(theme: str) -> None:
         }
         .pill-row { display: flex; flex-wrap: wrap; gap: .65rem; margin-top: 1.3rem; }
         .pill {
-          border: 1px solid rgba(16,33,31,.16);
-          background: var(--panel-strong);
+          border: 1px solid var(--line);
+          background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 13%, var(--panel-strong)), var(--panel-strong));
           border-radius: 999px;
           padding: .55rem .78rem;
           color: var(--ink);
@@ -141,7 +159,8 @@ def css(theme: str) -> None:
         .metric {
           background: var(--glass-strong);
           border: 1px solid var(--line);
-          backdrop-filter: blur(14px);
+          backdrop-filter: blur(18px) saturate(1.18);
+          -webkit-backdrop-filter: blur(18px) saturate(1.18);
           border-radius: 8px;
           padding: .9rem;
         }
@@ -166,8 +185,8 @@ def css(theme: str) -> None:
           background: var(--glass) !important;
           border-color: var(--line) !important;
           box-shadow: var(--shadow);
-          backdrop-filter: blur(24px) saturate(1.18);
-          -webkit-backdrop-filter: blur(24px) saturate(1.18);
+          backdrop-filter: blur(28px) saturate(1.22);
+          -webkit-backdrop-filter: blur(28px) saturate(1.22);
         }
         [data-testid="stFileUploaderDropzone"] {
           background: var(--upload) !important;
@@ -194,7 +213,7 @@ def css(theme: str) -> None:
         .stButton > button, .stDownloadButton > button {
           border-radius: 8px !important;
           border: 1px solid var(--line) !important;
-          background: var(--panel-strong) !important;
+          background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--panel-strong)), var(--panel-strong)) !important;
           color: var(--ink) !important;
           box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 16%, transparent);
         }
@@ -202,10 +221,21 @@ def css(theme: str) -> None:
           border-color: var(--accent) !important;
           color: var(--accent-2) !important;
         }
-        .stProgress div div div div { background-color: var(--accent) !important; }
+        .stProgress > div > div {
+          background-color: color-mix(in srgb, var(--muted) 14%, transparent) !important;
+        }
+        .stProgress div div div div {
+          background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent-3)) !important;
+        }
         [data-testid="stSidebar"] {
           background: var(--panel-strong) !important;
           border-right: 1px solid var(--line);
+        }
+        [data-testid="stForm"] {
+          background: color-mix(in srgb, var(--panel-strong) 78%, transparent) !important;
+          border: 1px solid var(--line) !important;
+          border-radius: 8px !important;
+          padding: 1rem !important;
         }
         div[data-baseweb="select"] > div,
         div[data-baseweb="input"] > div,
@@ -215,6 +245,7 @@ def css(theme: str) -> None:
           background: var(--field) !important;
           color: var(--ink) !important;
           border-color: var(--line) !important;
+          -webkit-text-fill-color: var(--ink) !important;
         }
         div[data-baseweb="select"] span,
         div[data-baseweb="select"] div,
@@ -223,10 +254,21 @@ def css(theme: str) -> None:
           color: var(--ink) !important;
           background-color: var(--field) !important;
         }
+        div[data-baseweb="select"] svg,
+        div[data-baseweb="checkbox"] svg,
+        div[data-baseweb="radio"] svg {
+          color: var(--ink) !important;
+          fill: var(--ink) !important;
+        }
         div[role="listbox"],
         div[role="option"] {
           background: var(--field) !important;
           color: var(--ink) !important;
+        }
+        div[role="option"] *,
+        [data-baseweb="menu"] * {
+          color: var(--ink) !important;
+          background-color: var(--field) !important;
         }
         div[role="option"]:hover {
           background: color-mix(in srgb, var(--accent) 18%, var(--field)) !important;
@@ -238,6 +280,12 @@ def css(theme: str) -> None:
           color: var(--ink) !important;
         }
         h1, h2, h3, p, label, span, li, code { color: var(--ink); }
+        [data-testid="stMarkdownContainer"], [data-testid="stMarkdownContainer"] * {
+          color: var(--ink);
+        }
+        small, .stCaptionContainer, [data-testid="stCaptionContainer"] {
+          color: var(--muted) !important;
+        }
         a { color: var(--accent-2) !important; }
         @media (max-width: 700px) {
           .block-container { padding-left: 1rem; padding-right: 1rem; }
